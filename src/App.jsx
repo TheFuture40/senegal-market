@@ -297,7 +297,7 @@ const deleteListing = async (id) => {
     }
   };
 
-  // DETAIL PAGE VIEW
+// DETAIL PAGE VIEW
   if (selectedListing) {
     const listing = selectedListing;
     const currentPhoto = listing.photos[currentPhotoIndex];
@@ -305,27 +305,25 @@ const deleteListing = async (id) => {
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', margin: '0' }}>
         <div style={{ background: '#1a1a1a', borderRadius: '0', overflow: 'hidden', width: '100%', height: '100vh', boxShadow: 'none', color: 'white', display: 'flex', flexDirection: 'column' }}>
-         {/* Header bar */}
-<div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, zIndex: 10 }}>
-  <button 
-    onClick={() => {
-      setSelectedListing(null);
-      setCurrentPhotoIndex(0);
-    }}
-    style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-  <div style={{ display: 'flex', gap: '8px' }}>
-    <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
-    <button 
-      onClick={() => {
-        if (window.confirm('Delete this listing?')) {
-          deleteListing(listing.id);
-          setSelectedListing(null);
-          setCurrentPhotoIndex(0);
-        }
-      }}
-      style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#ff4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>🗑️</button>
-  </div>
-</div>
+          {/* Header bar */}
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, zIndex: 10 }}>
+            <button 
+              onClick={() => {
+                setSelectedListing(null);
+                setCurrentPhotoIndex(0);
+              }}
+              style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
+              <button 
+                onClick={() => {
+                  if (window.confirm('Delete this listing?')) {
+                    deleteListing(listing.id);
+                  }
+                }}
+                style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#ff4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px', color: 'white', fontWeight: 'bold' }}>🗑️</button>
+            </div>
+          </div>
 
           {/* Photo carousel */}
           <div 
@@ -372,21 +370,23 @@ const deleteListing = async (id) => {
             <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
 
             {/* Audio player */}
-          {listing.audioBase64 && (
-  <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
-    <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-    <audio 
-      controls 
-      style={{ width: '100%', height: '40px' }} 
-      controlsList="nodownload"
-    >
-      <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
-      <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
-      <source src={`data:audio/wav;base64,${listing.audioBase64}`} type="audio/wav" />
-      Your browser does not support audio playback.
-    </audio>
-  </div>
-)}
+            {listing.audioBase64 && (
+              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
+                <audio 
+                  controls 
+                  style={{ width: '100%', height: '40px' }} 
+                  controlsList="nodownload"
+                  preload="auto"
+                >
+                  <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
+                  <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
+                  <source src={`data:audio/wav;base64,${listing.audioBase64}`} type="audio/wav" />
+                  Your browser does not support audio playback.
+                </audio>
+              </div>
+            )}
+
             {/* Info cards */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
               <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>

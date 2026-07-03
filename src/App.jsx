@@ -30,6 +30,7 @@ export default function App() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  const [audioMimeType, setAudioMimeType] = useState('audio/webm');
 
   useEffect(() => {
     loadListings();
@@ -47,13 +48,13 @@ export default function App() {
       const formattedListings = data.map(listing => ({
         id: listing.id,
         photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-  ? JSON.parse(listing.photo_data)
-  : [listing.photo_data],
+          ? JSON.parse(listing.photo_data)
+          : [listing.photo_data],
         category: listing.category,
         location: listing.location,
         phone: listing.phone,
         price: listing.price,
-        audioUrl: `data:audio/wav;base64,${listing.audio_data}`,
+        audioUrl: `data:audio/webm;base64,${listing.audio_data}`,
         timestamp: new Date(listing.created_at).toLocaleString()
       }));
 
@@ -65,22 +66,38 @@ export default function App() {
 
   const startRecording = async () => {
     audioChunksRef.current = [];
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mediaRecorder = new MediaRecorder(stream);
-    mediaRecorderRef.current = mediaRecorder;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Determine best supported format
+      let mimeType = 'audio/webm';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/mp4';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/wav';
+      }
+      
+      setAudioMimeType(mimeType);
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
 
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunksRef.current.push(event.data);
-    };
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
 
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-      setAudioBlob(blob);
-      stream.getTracks().forEach(track => track.stop());
-    };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        setAudioBlob(blob);
+        stream.getTracks().forEach(track => track.stop());
+      };
 
-    mediaRecorder.start();
-    setIsRecording(true);
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      alert('Njuroom sa microphone. Joxal maanaa.');
+    }
   };
 
   const stopRecording = () => {
@@ -183,10 +200,10 @@ export default function App() {
   };
 
   const getUniqueLocations = () => {
-  if (listings.length === 0) return [];
-  const locs = [...new Set(listings.map(l => l.location))];
-  return locs.sort();
-};
+    if (listings.length === 0) return [];
+    const locs = [...new Set(listings.map(l => l.location))];
+    return locs.sort();
+  };
 
   const listingsByCategory = (cat) => {
     if (selectedLocationFilter === 'All') {
@@ -286,7 +303,7 @@ export default function App() {
             {listing.audioUrl && (
               <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-                <audio controls style={{ width: '100%', height: '32px' }} src={listing.audioUrl} />
+                <audio controls style={{ width: '100%', height: '40px' }} src={listing.audioUrl} controlsList="nodownload" />
               </div>
             )}
 
@@ -464,7 +481,7 @@ export default function App() {
     );
   }
 
-// HOME/BROWSE PAGE VIEW (default)
+  // HOME/BROWSE PAGE VIEW (default)
   const uniqueLocations = getUniqueLocations();
   
   return (

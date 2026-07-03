@@ -65,41 +65,55 @@ export default function App() {
   };
 
   const startRecording = async () => {
-    audioChunksRef.current = [];
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Determine best supported format
-      let mimeType = 'audio/webm';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/mp4';
+  audioChunksRef.current = [];
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
       }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/wav';
-      }
-      
-      setAudioMimeType(mimeType);
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        setAudioBlob(blob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error('Error accessing microphone:', err);
-      alert('Njuroom sa microphone. Joxal maanaa.');
+    });
+    
+    // Determine best supported format
+    let mimeType = 'audio/webm';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'audio/mp4';
     }
-  };
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'audio/wav';
+    }
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = '';
+    }
+    
+    setAudioMimeType(mimeType);
+    const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+    mediaRecorderRef.current = mediaRecorder;
 
+    mediaRecorder.ondataavailable = (event) => {
+      audioChunksRef.current.push(event.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const blobMimeType = mimeType || 'audio/wav';
+      const blob = new Blob(audioChunksRef.current, { type: blobMimeType });
+      setAudioBlob(blob);
+      stream.getTracks().forEach(track => track.stop());
+    };
+
+    mediaRecorder.onerror = (event) => {
+      console.error('Recording error:', event.error);
+      alert('Njuroom sa recording: ' + event.error);
+    };
+
+    mediaRecorder.start();
+    setIsRecording(true);
+  } catch (err) {
+    console.error('Error accessing microphone:', err);
+    alert('Njuroom sa microphone. Joxal maanaa. Error: ' + err.message);
+  }
+};
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();

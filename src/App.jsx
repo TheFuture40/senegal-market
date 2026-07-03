@@ -36,19 +36,32 @@ export default function App() {
     loadListings();
   }, []);
 
-  const loadListings = async () => {
+  const loadListings = async (retryCount = 0) => {
   try {
+    // Add a timeout to the query
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     const { data, error } = await supabase
       .from('listings')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    clearTimeout(timeoutId);
 
     if (error) {
       console.error('Supabase error:', error);
+      // Retry once if timeout
+      if (error.code === '57014' && retryCount < 1) {
+        console.log('Retrying...');
+        setTimeout(() => loadListings(retryCount + 1), 2000);
+        return;
+      }
       throw error;
     }
 
-    if (!data) {
+    if (!data || data.length === 0) {
       setListings([]);
       return;
     }

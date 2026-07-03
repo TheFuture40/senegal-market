@@ -183,9 +183,10 @@ export default function App() {
   };
 
   const getUniqueLocations = () => {
-    const locs = [...new Set(listings.map(l => l.location))];
-    return locs.sort();
-  };
+  if (listings.length === 0) return [];
+  const locs = [...new Set(listings.map(l => l.location))];
+  return locs.sort();
+};
 
   const listingsByCategory = (cat) => {
     if (selectedLocationFilter === 'All') {
@@ -463,7 +464,7 @@ export default function App() {
     );
   }
 
-  // HOME/BROWSE PAGE VIEW (default)
+// HOME/BROWSE PAGE VIEW (default)
   const uniqueLocations = getUniqueLocations();
   
   return (
@@ -479,7 +480,7 @@ export default function App() {
               style={{ padding: '6px 14px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>
               All
             </button>
-            {uniqueLocations.map(loc => (
+            {uniqueLocations.length > 0 && uniqueLocations.map(loc => (
               <button
                 key={loc}
                 onClick={() => setSelectedLocationFilter(loc)}

@@ -55,6 +55,8 @@ export default function App() {
         phone: listing.phone,
         price: listing.price,
         audioUrl: `data:audio/webm;base64,${listing.audio_data}`,
+        audioUrlMp4: `data:audio/mp4;base64,${listing.audio_data}`,
+        audioUrlWav: `data:audio/wav;base64,${listing.audio_data}`,
         timestamp: new Date(listing.created_at).toLocaleString()
       }));
 
@@ -315,11 +317,16 @@ export default function App() {
 
             {/* Audio player */}
             {listing.audioUrl && (
-              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
-                <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-                <audio controls style={{ width: '100%', height: '40px' }} src={listing.audioUrl} controlsList="nodownload" />
-              </div>
-            )}
+  <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
+    <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
+    <audio controls style={{ width: '100%', height: '40px' }} controlsList="nodownload">
+      <source src={listing.audioUrl} type="audio/webm" />
+      <source src={listing.audioUrlMp4} type="audio/mp4" />
+      <source src={listing.audioUrlWav} type="audio/wav" />
+      Your browser does not support audio playback.
+    </audio>
+  </div>
+)}
 
             {/* Info cards */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>

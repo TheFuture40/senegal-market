@@ -36,29 +36,24 @@ export default function App() {
     loadListings();
   }, []);
 
-  const loadListings = async (retryCount = 0) => {
+const loadListings = async (retryCount = 0) => {
   try {
-    // Add a timeout to the query
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
+    // Only select what we need, limit to recent 50 to reduce query size
     const { data, error } = await supabase
       .from('listings')
       .select('id, category, location, phone, price, photo_data, audio_data, created_at')
       .order('created_at', { ascending: false })
-      .limit(100);
-
-    clearTimeout(timeoutId);
+      .limit(50);
 
     if (error) {
-      console.error('Supabase error:', error);
+      console.error('Supabase error:', error.code);
       // Retry once if timeout
       if (error.code === '57014' && retryCount < 1) {
-        console.log('Retrying...');
-        setTimeout(() => loadListings(retryCount + 1), 2000);
+        setTimeout(() => loadListings(retryCount + 1), 3000);
         return;
       }
-      throw error;
+      setListings([]);
+      return;
     }
 
     if (!data || data.length === 0) {
@@ -81,14 +76,13 @@ export default function App() {
           timestamp: new Date(listing.created_at).toLocaleString()
         };
       } catch (e) {
-        console.error('Error formatting listing:', e);
         return null;
       }
     }).filter(l => l !== null);
 
     setListings(formattedListings);
   } catch (err) {
-    console.error('Error loading listings:', err);
+    console.error('Error loading listings');
     setListings([]);
   }
 };

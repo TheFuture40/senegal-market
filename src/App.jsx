@@ -2,30 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import './App.css';
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
-// Initialize Supabase
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Common Dakar markets/neighborhoods
 const LOCATIONS = [
-  'Sandaga',
-  'Pikine',
-  'HLM',
-  'Medina',
-  'Fass',
-  'Plateau',
-  'Sacré-Cœur',
-  'Parcelles',
-  'Liberté',
-  'Mermoz',
-  'Ngor',
-  'Yoff',
-  'Ouakam',
-  'Other'
+  'Sandaga', 'Pikine', 'HLM', 'Medina', 'Fass', 'Plateau',
+  'Sacré-Cœur', 'Parcelles', 'Liberté', 'Mermoz', 'Ngor', 'Yoff', 'Ouakam', 'Bii'
 ];
 
 export default function App() {
@@ -41,12 +24,10 @@ export default function App() {
   const [phone, setPhone] = useState('');
   const [price, setPrice] = useState('');
   const [listings, setListings] = useState([]);
-  const [currentTab, setCurrentTab] = useState('create');
-  const [filterCategory, setFilterCategory] = useState(null);
-  const [filterLocation, setFilterLocation] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentTab, setCurrentTab] = useState('browse');
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState('All');
+  const [selectedListing, setSelectedListing] = useState(null);
 
-  // Load listings from Supabase on app start
   useEffect(() => {
     loadListings();
   }, []);
@@ -60,7 +41,6 @@ export default function App() {
 
       if (error) throw error;
 
-      // Convert base64 back to usable format
       const formattedListings = data.map(listing => ({
         id: listing.id,
         photo: listing.photo_data,
@@ -75,12 +55,9 @@ export default function App() {
       setListings(formattedListings);
     } catch (err) {
       console.error('Error loading listings:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
-  // Start recording voice note
   const startRecording = async () => {
     audioChunksRef.current = [];
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -101,7 +78,6 @@ export default function App() {
     setIsRecording(true);
   };
 
-  // Stop recording
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -109,7 +85,6 @@ export default function App() {
     }
   };
 
-  // Handle photo from file
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -121,17 +96,14 @@ export default function App() {
     }
   };
 
-  // Trigger camera
   const triggerCamera = () => {
     cameraInputRef.current?.click();
   };
 
-  // Trigger file picker
   const triggerFilePicker = () => {
     fileInputRef.current?.click();
   };
 
-  // Convert blob to base64
   const blobToBase64 = (blob) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -144,19 +116,16 @@ export default function App() {
     });
   };
 
-  // Create listing and save to Supabase
   const handleListIt = async () => {
     if (!audioBlob || !photo || !selectedCategory || !selectedLocation || !phone || !price) {
-      alert('Please fill in all fields');
+      alert('Joxal baaxalal bu nekk');
       return;
     }
 
     try {
-      // Convert audio blob to base64
       const audioBase64 = await blobToBase64(audioBlob);
       
-      // Save to Supabase
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('listings')
         .insert([
           {
@@ -167,30 +136,27 @@ export default function App() {
             photo_data: photo,
             audio_data: audioBase64
           }
-        ])
-        .select();
+        ]);
 
       if (error) throw error;
 
-      // Reload listings
       await loadListings();
 
-      // Reset form
       setAudioBlob(null);
       setPhoto(null);
       setSelectedCategory(null);
       setSelectedLocation(null);
       setPhone('');
       setPrice('');
+      setCurrentTab('browse');
       
-      alert('Listing created!');
+      alert('Baaxal liggéey naa!');
     } catch (err) {
       console.error('Error creating listing:', err);
-      alert('Error creating listing. Try again.');
+      alert('Njuroom sa. Jongale biir.');
     }
   };
 
-  // Delete listing from Supabase
   const deleteListing = async (id) => {
     try {
       const { error } = await supabase
@@ -200,104 +166,140 @@ export default function App() {
 
       if (error) throw error;
 
-      // Remove from local state
       setListings(listings.filter(listing => listing.id !== id));
+      setSelectedListing(null);
     } catch (err) {
       console.error('Error deleting listing:', err);
-      alert('Error deleting listing.');
     }
   };
 
   const categoryIcons = {
-    Jeun: '🐟',
-    Jepp: '🍚',
-    Loujum: '🥬',
-    Fruits: '🍌',
-    'Roots & Tubers': '🥔',
-    Nenn: '🥚',
-    'Spices & Nuts': '🌰',
-    Other: '📦'
+    'Yeet': '🐟',
+    'Jeep': '🍚',
+    'Taaxat': '🥬',
+    'Pampe': '🍌',
+    'Jaxas': '🥔',
+    'Yaañu': '🥚',
+    'Jujuben': '🌰',
+    'Bii': '📦'
   };
 
-  // Get unique locations from listings
-  const uniqueLocations = [...new Set(listings.map(l => l.location))].sort();
+  const getUniqueLocations = () => {
+    const locs = [...new Set(listings.map(l => l.location))];
+    return locs.sort();
+  };
 
-  // Filter listings based on both category and location
-  const filteredListings = listings.filter(listing => 
-    (filterCategory === null || listing.category === filterCategory) &&
-    (filterLocation === null || listing.location === filterLocation)
-  );
+  const listingsByCategory = (cat) => {
+    if (selectedLocationFilter === 'All') {
+      return listings.filter(l => l.category === cat);
+    }
+    return listings.filter(l => l.category === cat && l.location === selectedLocationFilter);
+  };
 
-  return (
-    <div className="app">
-      <header className="header">
-        <h1>Sunu Market</h1>
-        <p>Sell fresh goods by voice</p>
-      </header>
+  // DETAIL PAGE VIEW
+  if (selectedListing) {
+    const listing = selectedListing;
+    return (
+      <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ background: '#242424', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '320px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', color: 'white' }}>
+          {/* Header bar */}
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <button 
+              onClick={() => setSelectedListing(null)}
+              style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+            <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
+          </div>
 
-      <nav className="tabs">
-        <button 
-          className={`tab ${currentTab === 'create' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('create')}
-        >
-          ➕ Create
-        </button>
-        <button 
-          className={`tab ${currentTab === 'browse' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('browse')}
-        >
-          👀 Lufi Am ({listings.length})
-        </button>
-      </nav>
+          {/* Hero image */}
+          <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px' }}>
+            {Object.entries(categoryIcons).find(([k]) => k === listing.category)?.[1] || '📦'}
+          </div>
 
-      <main className="container">
-        {/* CREATE TAB */}
-        {currentTab === 'create' && (
-          <section className="form-section">
-            <h2>Listel Fii</h2>
-
-            {/* Voice Recording */}
-            <div className="form-group">
-              <label>Recordel li ngay Jaay</label>
-              <div className="recording-controls">
-                {!isRecording ? (
-                  <button 
-                    className="btn btn-record"
-                    onClick={startRecording}
-                  >
-                    🎤 Record
-                  </button>
-                ) : (
-                  <button 
-                    className="btn btn-recording"
-                    onClick={stopRecording}
-                  >
-                    ⏹ Stop
-                  </button>
-                )}
-              </div>
-              {audioBlob && <p className="success">✓ Voice note recorded</p>}
+          {/* Content */}
+          <div style={{ padding: '20px 16px', maxHeight: '280px', overflowY: 'auto' }}>
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '22px', fontWeight: '600', marginBottom: '12px', color: 'white' }}>{listing.category}</div>
+              <div style={{ fontSize: '28px', fontWeight: '600', color: '#0f6e56', marginBottom: '12px' }}>{listing.price} F</div>
+              <div style={{ fontSize: '13px', color: '#999' }}>📍 {listing.location} • {listing.timestamp}</div>
             </div>
 
-            {/* Photo Upload */}
-            <div className="form-group">
-              <label>Add Photo</label>
-              <div className="photo-buttons">
-                <button 
-                  className="btn btn-photo"
-                  onClick={triggerCamera}
-                >
-                  📷 Take Photo
-                </button>
-                <button 
-                  className="btn btn-photo"
-                  onClick={triggerFilePicker}
-                >
-                  🖼 Choose Photo
-                </button>
+            <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
+
+            {/* Audio player */}
+            {listing.audioUrl && (
+              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
+                <audio controls style={{ width: '100%', height: '32px' }} src={listing.audioUrl} />
               </div>
-              
-              {/* Hidden file inputs */}
+            )}
+
+            {/* Info cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', marginBottom: '8px' }}>📍</div>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Location</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>{listing.location}</div>
+              </div>
+              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', marginBottom: '8px' }}>🕐</div>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Listed</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>Now</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px' }}>
+            <a href={`tel:${listing.phone}`} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☎ Call</a>
+            <a href={`https://wa.me/221${listing.phone.replace(/\s/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬 WhatsApp</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // CREATE PAGE VIEW
+  if (currentTab === 'create') {
+    return (
+      <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ background: '#242424', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '320px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', color: 'white' }}>
+          {/* Header */}
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <button 
+              onClick={() => setCurrentTab('browse')}
+              style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+            <div style={{ fontSize: '14px', fontWeight: '600' }}>List Item</div>
+            <div style={{ width: '28px' }}></div>
+          </div>
+
+          {/* Scrollable form */}
+          <div style={{ maxHeight: '500px', overflowY: 'auto', padding: '20px 16px' }}>
+            
+            {/* Voice Recording */}
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>1. Your voice</div>
+              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
+                <button 
+                  onClick={isRecording ? stopRecording : startRecording}
+                  style={{ width: '100%', padding: '16px', background: '#0f6e56', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginBottom: '8px' }}>
+                  {isRecording ? 'Stop' : 'Record'}
+                </button>
+                <div style={{ fontSize: '11px', color: '#999' }}>{audioBlob ? '✓ Recorded' : 'Not recorded'}</div>
+              </div>
+            </div>
+
+            {/* Photo */}
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>2. Photo</div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <button 
+                  onClick={triggerCamera}
+                  style={{ flex: 1, padding: '16px', background: '#333', border: '1px solid #444', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>📷 Take</button>
+                <button 
+                  onClick={triggerFilePicker}
+                  style={{ flex: 1, padding: '16px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>🖼 Choose</button>
+              </div>
               <input 
                 ref={cameraInputRef}
                 type="file" 
@@ -313,208 +315,205 @@ export default function App() {
                 onChange={handlePhotoChange}
                 style={{ display: 'none' }}
               />
-
-              {photo && (
-                <div className="photo-preview">
-                  <img src={photo} alt="preview" />
-                </div>
-              )}
+              {photo && <div style={{ fontSize: '11px', color: '#999' }}>✓ Photo selected</div>}
             </div>
 
-            {/* Category Buttons */}
-            <div className="form-group">
-              <label>Loy Jaay?</label>
-              <div className="category-buttons">
-                {Object.keys(categoryIcons).map(cat => (
+            {/* Category */}
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>3. Category</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+                {Object.entries(categoryIcons).map(([cat, icon]) => (
                   <button
                     key={cat}
-                    className={`category-btn ${selectedCategory === cat ? 'active' : ''}`}
                     onClick={() => setSelectedCategory(cat)}
-                  >
-                    <span className="icon">{categoryIcons[cat]}</span>
-                    <span>{cat}</span>
+                    style={{ padding: '12px', background: selectedCategory === cat ? '#0f6e56' : '#1a1a1a', border: selectedCategory === cat ? '2px solid #0f6e56' : '1px solid #444', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '20px', fontWeight: '600' }}>
+                    {icon}
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Location */}
-            <div className="form-group">
-              <label>Where are you selling?</label>
-              <div className="location-buttons">
-                {LOCATIONS.map(loc => (
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>4. Location</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {LOCATIONS.slice(0, 8).map(loc => (
                   <button
                     key={loc}
-                    className={`location-btn ${selectedLocation === loc ? 'active' : ''}`}
                     onClick={() => setSelectedLocation(loc)}
-                  >
+                    style={{ padding: '10px', background: selectedLocation === loc ? '#0f6e56' : '#1a1a1a', border: selectedLocation === loc ? '2px solid #0f6e56' : '1px solid #444', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
                     📍 {loc}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Phone Number */}
-            <div className="form-group">
-              <label>Sa Numero</label>
-              <input
+            {/* Phone */}
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>5. Your phone</div>
+              <input 
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g., 77 123 45 67"
-                className="phone-input"
+                placeholder="77 123 45 67"
+                style={{ width: '100%', padding: '12px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white' }}
               />
             </div>
 
             {/* Price */}
-            <div className="form-group">
-              <label>Price (CFA)</label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="e.g., 2000"
-                className="price-input"
-              />
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>6. Price</div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="2000"
+                  style={{ flex: 1, padding: '12px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', color: 'white' }}
+                />
+                <div style={{ padding: '12px', background: '#333', borderRadius: '8px', color: '#999', fontWeight: '600' }}>F</div>
+              </div>
             </div>
 
-            {/* Submit Button */}
+          </div>
+
+          {/* Button */}
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px' }}>
             <button 
-              className="btn btn-list-it"
+              onClick={() => setCurrentTab('browse')}
+              style={{ flex: 1, padding: '14px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+            <button 
               onClick={handleListIt}
-            >
-              List It
+              style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>List It</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // HOME/BROWSE PAGE VIEW (default)
+  const uniqueLocations = getUniqueLocations();
+  
+  return (
+    <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: '#1a1a1a', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '320px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', height: '640px', color: 'white' }}>
+        
+        {/* Sticky header */}
+        <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333' }}>
+          <div style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Sunu Market</div>
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+            <button
+              onClick={() => setSelectedLocationFilter('All')}
+              style={{ padding: '6px 14px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>
+              All
             </button>
-          </section>
-        )}
+            {uniqueLocations.map(loc => (
+              <button
+                key={loc}
+                onClick={() => setSelectedLocationFilter(loc)}
+                style={{ padding: '6px 14px', background: selectedLocationFilter === loc ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === loc ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>
+                📍 {loc}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        {/* BROWSE TAB */}
-        {currentTab === 'browse' && (
-          <section className="browse-section">
-            <h2>Available Listings</h2>
-            
-            {/* Category Filter */}
-            <div className="filter-section">
-              <h3 className="filter-title">By Category</h3>
-              <div className="filter-buttons">
-                <button 
-                  className={`filter-btn ${filterCategory === null ? 'active' : ''}`}
-                  onClick={() => setFilterCategory(null)}
-                >
-                  All
-                </button>
-                {Object.keys(categoryIcons).map(cat => (
-                  <button
-                    key={cat}
-                    className={`filter-btn ${filterCategory === cat ? 'active' : ''}`}
-                    onClick={() => setFilterCategory(cat)}
-                  >
-                    {categoryIcons[cat]} {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Location Filter */}
-            <div className="filter-section">
-              <h3 className="filter-title">By Location</h3>
-              <div className="filter-buttons">
-                <button 
-                  className={`filter-btn ${filterLocation === null ? 'active' : ''}`}
-                  onClick={() => setFilterLocation(null)}
-                >
-                  All
-                </button>
-                {uniqueLocations.map(loc => (
-                  <button
-                    key={loc}
-                    className={`filter-btn ${filterLocation === loc ? 'active' : ''}`}
-                    onClick={() => setFilterLocation(loc)}
-                  >
-                    📍 {loc}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="loading">Loading listings...</div>
-            ) : listings.length === 0 ? (
-              <div className="empty-state">
-                <p>No listings yet. Be the first to list!</p>
-              </div>
-            ) : filteredListings.length === 0 ? (
-              <div className="empty-state">
-                <p>No listings match your filters.</p>
-              </div>
-            ) : (
-              <div className="listings-grid">
-                {filteredListings.map(listing => (
-                  <div key={listing.id} className="listing-card">
-                    {/* Photo */}
-                    <div className="listing-photo">
-                      <img src={listing.photo} alt="listing" />
-                    </div>
-
-                    {/* Category and Price */}
-                    <div className="listing-info">
-                      <div className="category-badge">
-                        {categoryIcons[listing.category]} {listing.category}
-                      </div>
-                      <div className="location-badge">
-                        📍 {listing.location}
-                      </div>
-                      <div className="price">
-                        {listing.price} CFA
-                      </div>
-                      <div className="timestamp">
-                        {listing.timestamp}
-                      </div>
-                    </div>
-
-                    {/* Voice Player */}
-                    <div className="voice-player">
-                      <audio 
-                        controls 
-                        src={listing.audioUrl}
-                      />
-                    </div>
-
-                    {/* Contact Buttons */}
-                    {/* Contact Buttons */}
-{listing.phone && (
-  <div className="contact-buttons">
-    <a 
-      href={`tel:${listing.phone}`}
-      className="btn btn-call"
-    >
-      ☎ Call
-    </a>
-    <a 
-      href={`https://wa.me/221${listing.phone.replace(/\s/g, '')}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="btn btn-whatsapp"
-    >
-      💬 WhatsApp
-    </a>
-  </div>
-)}
-
-                    {/* Delete Button */}
-                    <button 
-                      className="btn btn-delete"
-                      onClick={() => deleteListing(listing.id)}
-                    >
-                      🗑 Delete
-                    </button>
+        {/* Scrollable shelves */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          
+          {/* Shelf: Fish */}
+          {listingsByCategory('Yeet').length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid #0f6e56', color: 'white' }}>🐟 Fish</div>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px' }}>
+                {listingsByCategory('Yeet').map(listing => (
+                  <div 
+                    key={listing.id}
+                    onClick={() => setSelectedListing(listing)}
+                    style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px' }}>🐟</div>
+                    <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
                   </div>
                 ))}
               </div>
-            )}
-          </section>
-        )}
-      </main>
+            </div>
+          )}
+
+          {/* Shelf: Vegetables */}
+          {listingsByCategory('Taaxat').length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid #1D9E75', color: 'white' }}>🥬 Vegetables</div>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px' }}>
+                {listingsByCategory('Taaxat').map(listing => (
+                  <div 
+                    key={listing.id}
+                    onClick={() => setSelectedListing(listing)}
+                    style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px' }}>🥬</div>
+                    <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Shelf: Fruits */}
+          {listingsByCategory('Pampe').length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid #D4A574', color: 'white' }}>🍌 Fruits</div>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px' }}>
+                {listingsByCategory('Pampe').map(listing => (
+                  <div 
+                    key={listing.id}
+                    onClick={() => setSelectedListing(listing)}
+                    style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px' }}>🍌</div>
+                    <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Shelf: Rice */}
+          {listingsByCategory('Jeep').length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid #B8860B', color: 'white' }}>🍚 Rice</div>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px' }}>
+                {listingsByCategory('Jeep').map(listing => (
+                  <div 
+                    key={listing.id}
+                    onClick={() => setSelectedListing(listing)}
+                    style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px' }}>🍚</div>
+                    <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {listings.length === 0 && (
+            <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
+              <div>No listings yet</div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Sticky bottom button */}
+<div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px' }}>
+  <button 
+    onClick={() => setCurrentTab('create')}
+    style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
+</div>
+
+      </div>
     </div>
   );
 }

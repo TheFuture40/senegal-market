@@ -38,7 +38,6 @@ export default function App() {
 
 const loadListings = async (retryCount = 0) => {
   try {
-    // Only select what we need, limit to recent 50 to reduce query size
     const { data, error } = await supabase
       .from('listings')
       .select('id, category, location, phone, price, photo_data, audio_data, created_at')
@@ -46,10 +45,9 @@ const loadListings = async (retryCount = 0) => {
       .limit(50);
 
     if (error) {
-      console.error('Supabase error:', error.code);
-      // Retry once if timeout
+      // Silently retry without logging
       if (error.code === '57014' && retryCount < 1) {
-        setTimeout(() => loadListings(retryCount + 1), 3000);
+        setTimeout(() => loadListings(retryCount + 1), 2000);
         return;
       }
       setListings([]);
@@ -82,11 +80,9 @@ const loadListings = async (retryCount = 0) => {
 
     setListings(formattedListings);
   } catch (err) {
-    console.error('Error loading listings');
     setListings([]);
   }
 };
-
   const startRecording = async () => {
   audioChunksRef.current = [];
   try {

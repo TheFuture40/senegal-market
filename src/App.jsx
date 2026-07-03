@@ -36,53 +36,7 @@ export default function App() {
     loadListings();
   }, []);
 
-const loadListings = async (retryCount = 0) => {
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error) {
-      // Silently retry without logging
-      if (error.code === '57014' && retryCount < 1) {
-        setTimeout(() => loadListings(retryCount + 1), 2000);
-        return;
-      }
-      setListings([]);
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      setListings([]);
-      return;
-    }
-
-    const formattedListings = data.map(listing => {
-      try {
-        return {
-          id: listing.id,
-          photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-            ? JSON.parse(listing.photo_data)
-            : [listing.photo_data],
-          category: listing.category,
-          location: listing.location,
-          phone: listing.phone,
-          price: listing.price,
-          audioBase64: listing.audio_data || '',
-          timestamp: new Date(listing.created_at).toLocaleString()
-        };
-      } catch (e) {
-        return null;
-      }
-    }).filter(l => l !== null);
-
-    setListings(formattedListings);
-  } catch (err) {
-    setListings([]);
-  }
-};
+loadListings
   const startRecording = async () => {
   audioChunksRef.current = [];
   try {

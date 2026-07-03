@@ -68,7 +68,7 @@ export default function App() {
         location: listing.location,
         phone: listing.phone,
         price: listing.price,
-        audioUrl: `data:audio/webm;base64,${listing.audio_data}`,
+        audioUrl: `data:audio/wav;base64,${listing.audio_data}`,
         timestamp: new Date(listing.created_at).toLocaleString()
       }));
 
@@ -92,7 +92,7 @@ export default function App() {
     };
 
     mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      const blob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
       setAudioBlob(blob);
       stream.getTracks().forEach(track => track.stop());
     };

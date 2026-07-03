@@ -201,18 +201,18 @@ export default function App() {
     const listing = selectedListing;
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', margin: '0' }}>
-        <div style={{ background: '#242424', borderRadius: '0', overflow: 'hidden', width: '100%', height: '100vh', boxShadow: 'none', color: 'white', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#1a1a1a', borderRadius: '0', overflow: 'hidden', width: '100%', height: '100vh', boxShadow: 'none', color: 'white', display: 'flex', flexDirection: 'column' }}>
           {/* Header bar */}
-          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             <button 
               onClick={() => setSelectedListing(null)}
               style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
             <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
           </div>
 
-          {/* Hero image */}
-          <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px', flexShrink: 0 }}>
-            {Object.entries(categoryIcons).find(([k]) => k === listing.category)?.[1] || '📦'}
+          {/* Hero image - ACTUAL PHOTO */}
+          <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px', flexShrink: 0, backgroundImage: listing.photo ? `url(${listing.photo})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+            {!listing.photo && (Object.entries(categoryIcons).find(([k]) => k === listing.category)?.[1] || '📦')}
           </div>
 
           {/* Content */}
@@ -227,7 +227,7 @@ export default function App() {
 
             {/* Audio player */}
             {listing.audioUrl && (
-              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
                 <audio controls style={{ width: '100%', height: '32px' }} src={listing.audioUrl} />
               </div>
@@ -235,12 +235,12 @@ export default function App() {
 
             {/* Info cards */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
                 <div style={{ fontSize: '20px', marginBottom: '8px' }}>📍</div>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Location</div>
                 <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>{listing.location}</div>
               </div>
-              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
                 <div style={{ fontSize: '20px', marginBottom: '8px' }}>🕐</div>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Listed</div>
                 <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>Now</div>
@@ -278,7 +278,7 @@ export default function App() {
             {/* Voice Recording */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>1. Your voice</div>
-              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', textAlign: 'center', border: '1px solid #333' }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
                 <button 
                   onClick={isRecording ? stopRecording : startRecording}
@@ -431,7 +431,9 @@ export default function App() {
                     key={listing.id}
                     onClick={() => setSelectedListing(listing)}
                     style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px' }}>🐟</div>
+                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photo ? `url(${listing.photo})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px' }}>
+                      {!listing.photo && '🐟'}
+                    </div>
                     <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
                     <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
                   </div>
@@ -450,7 +452,9 @@ export default function App() {
                     key={listing.id}
                     onClick={() => setSelectedListing(listing)}
                     style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px' }}>🥬</div>
+                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photo ? `url(${listing.photo})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px' }}>
+                      {!listing.photo && '🥬'}
+                    </div>
                     <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
                     <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
                   </div>
@@ -469,7 +473,9 @@ export default function App() {
                     key={listing.id}
                     onClick={() => setSelectedListing(listing)}
                     style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px' }}>🍌</div>
+                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photo ? `url(${listing.photo})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px' }}>
+                      {!listing.photo && '🍌'}
+                    </div>
                     <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
                     <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
                   </div>
@@ -488,7 +494,9 @@ export default function App() {
                     key={listing.id}
                     onClick={() => setSelectedListing(listing)}
                     style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px' }}>🍚</div>
+                    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photo ? `url(${listing.photo})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px' }}>
+                      {!listing.photo && '🍚'}
+                    </div>
                     <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
                     <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
                   </div>

@@ -200,8 +200,8 @@ export default function App() {
   if (selectedListing) {
     const listing = selectedListing;
     return (
-      <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ background: '#242424', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '320px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', color: 'white' }}>
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', margin: '0' }}>
+        <div style={{ background: '#242424', borderRadius: '0', overflow: 'hidden', width: '100%', height: '100vh', boxShadow: 'none', color: 'white', display: 'flex', flexDirection: 'column' }}>
           {/* Header bar */}
           <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button 
@@ -211,12 +211,12 @@ export default function App() {
           </div>
 
           {/* Hero image */}
-          <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px' }}>
+          <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px', flexShrink: 0 }}>
             {Object.entries(categoryIcons).find(([k]) => k === listing.category)?.[1] || '📦'}
           </div>
 
           {/* Content */}
-          <div style={{ padding: '20px 16px', maxHeight: '280px', overflowY: 'auto' }}>
+          <div style={{ padding: '20px 16px', flex: 1, overflowY: 'auto' }}>
             <div style={{ marginBottom: '20px' }}>
               <div style={{ fontSize: '22px', fontWeight: '600', marginBottom: '12px', color: 'white' }}>{listing.category}</div>
               <div style={{ fontSize: '28px', fontWeight: '600', color: '#0f6e56', marginBottom: '12px' }}>{listing.price} F</div>
@@ -249,7 +249,7 @@ export default function App() {
           </div>
 
           {/* Action buttons */}
-          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px' }}>
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
             <a href={`tel:${listing.phone}`} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☎ Call</a>
             <a href={`https://wa.me/221${listing.phone.replace(/\s/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬 WhatsApp</a>
           </div>
@@ -261,10 +261,10 @@ export default function App() {
   // CREATE PAGE VIEW
   if (currentTab === 'create') {
     return (
-      <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ background: '#242424', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '320px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', color: 'white' }}>
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', margin: '0' }}>
+        <div style={{ background: '#242424', borderRadius: '0', overflow: 'hidden', width: '100%', height: '100vh', boxShadow: 'none', color: 'white', display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
-          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             <button 
               onClick={() => setCurrentTab('browse')}
               style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
@@ -273,7 +273,7 @@ export default function App() {
           </div>
 
           {/* Scrollable form */}
-          <div style={{ maxHeight: '500px', overflowY: 'auto', padding: '20px 16px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
             
             {/* Voice Recording */}
             <div style={{ marginBottom: '28px' }}>
@@ -378,7 +378,7 @@ export default function App() {
           </div>
 
           {/* Button */}
-          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px' }}>
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
             <button 
               onClick={() => setCurrentTab('browse')}
               style={{ flex: 1, padding: '14px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
@@ -395,11 +395,11 @@ export default function App() {
   const uniqueLocations = getUniqueLocations();
   
   return (
-    <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ background: '#1a1a1a', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '320px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', height: '640px', color: 'white' }}>
+    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', margin: '0' }}>
+      <div style={{ background: '#1a1a1a', borderRadius: '0', overflow: 'hidden', width: '100%', height: '100vh', boxShadow: 'none', display: 'flex', flexDirection: 'column', color: 'white' }}>
         
         {/* Sticky header */}
-        <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333' }}>
+        <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333', flexShrink: 0 }}>
           <div style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Sunu Market</div>
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
             <button
@@ -507,11 +507,11 @@ export default function App() {
         </div>
 
         {/* Sticky bottom button */}
-<div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px' }}>
-  <button 
-    onClick={() => setCurrentTab('create')}
-    style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
-</div>
+        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', flexShrink: 0 }}>
+          <button 
+            onClick={() => setCurrentTab('create')}
+            style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
+        </div>
 
       </div>
     </div>

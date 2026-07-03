@@ -258,16 +258,27 @@ export default function App() {
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', margin: '0' }}>
         <div style={{ background: '#1a1a1a', borderRadius: '0', overflow: 'hidden', width: '100%', height: '100vh', boxShadow: 'none', color: 'white', display: 'flex', flexDirection: 'column' }}>
-          {/* Header bar */}
-          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, zIndex: 10 }}>
-            <button 
-              onClick={() => {
-                setSelectedListing(null);
-                setCurrentPhotoIndex(0);
-              }}
-              style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-            <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
-          </div>
+         {/* Header bar */}
+<div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, zIndex: 10 }}>
+  <button 
+    onClick={() => {
+      setSelectedListing(null);
+      setCurrentPhotoIndex(0);
+    }}
+    style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+  <div style={{ display: 'flex', gap: '8px' }}>
+    <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
+    <button 
+      onClick={() => {
+        if (window.confirm('Delete this listing?')) {
+          deleteListing(listing.id);
+          setSelectedListing(null);
+          setCurrentPhotoIndex(0);
+        }
+      }}
+      style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#ff4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>🗑️</button>
+  </div>
+</div>
 
           {/* Photo carousel */}
           <div 

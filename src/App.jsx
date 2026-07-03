@@ -37,48 +37,32 @@ export default function App() {
   }, []);
 
   const loadListings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formattedListings = data.map(listing => {
-  // Convert base64 to Blob URL for better mobile performance
-  let audioUrl = null;
   try {
-    const binaryString = atob(listing.audio_data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    const blob = new Blob([bytes], { type: 'audio/webm' });
-    audioUrl = URL.createObjectURL(blob);
-  } catch (e) {
-    console.error('Error converting audio:', e);
+    const { data, error } = await supabase
+      .from('listings')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const formattedListings = data.map(listing => ({
+      id: listing.id,
+      photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+        ? JSON.parse(listing.photo_data)
+        : [listing.photo_data],
+      category: listing.category,
+      location: listing.location,
+      phone: listing.phone,
+      price: listing.price,
+      audioBase64: listing.audio_data,
+      timestamp: new Date(listing.created_at).toLocaleString()
+    }));
+
+    setListings(formattedListings);
+  } catch (err) {
+    console.error('Error loading listings:', err);
   }
-
-  return {
-    id: listing.id,
-    photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-      ? JSON.parse(listing.photo_data)
-      : [listing.photo_data],
-    category: listing.category,
-    location: listing.location,
-    phone: listing.phone,
-    price: listing.price,
-    audioUrl: audioUrl,
-    timestamp: new Date(listing.created_at).toLocaleString()
-  };
-});
-
-      setListings(formattedListings);
-    } catch (err) {
-      console.error('Error loading listings:', err);
-    }
-  };
+};
 
   const startRecording = async () => {
   audioChunksRef.current = [];
@@ -330,16 +314,17 @@ export default function App() {
             <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
 
             {/* Audio player */}
-           {listing.audioUrl && (
+          {listing.audioBase64 && (
   <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
     <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
     <audio 
       controls 
-      preload="auto"
       style={{ width: '100%', height: '40px' }} 
       controlsList="nodownload"
     >
-      <source src={listing.audioUrl} />
+      <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
+      <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
+      <source src={`data:audio/wav;base64,${listing.audioBase64}`} type="audio/wav" />
       Your browser does not support audio playback.
     </audio>
   </div>

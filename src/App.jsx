@@ -46,9 +46,9 @@ export default function App() {
 
       const formattedListings = data.map(listing => ({
         id: listing.id,
-        photos: typeof listing.photo_data === 'string' 
-          ? JSON.parse(listing.photo_data) 
-          : [listing.photo_data],
+        photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+  ? JSON.parse(listing.photo_data)
+  : [listing.photo_data],
         category: listing.category,
         location: listing.location,
         phone: listing.phone,

@@ -43,24 +43,40 @@ export default function App() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
 
-    const formattedListings = data.map(listing => ({
-      id: listing.id,
-      photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-        ? JSON.parse(listing.photo_data)
-        : [listing.photo_data],
-      category: listing.category,
-      location: listing.location,
-      phone: listing.phone,
-      price: listing.price,
-      audioBase64: listing.audio_data,
-      timestamp: new Date(listing.created_at).toLocaleString()
-    }));
+    if (!data) {
+      setListings([]);
+      return;
+    }
+
+    const formattedListings = data.map(listing => {
+      try {
+        return {
+          id: listing.id,
+          photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+            ? JSON.parse(listing.photo_data)
+            : [listing.photo_data],
+          category: listing.category,
+          location: listing.location,
+          phone: listing.phone,
+          price: listing.price,
+          audioBase64: listing.audio_data || '',
+          timestamp: new Date(listing.created_at).toLocaleString()
+        };
+      } catch (e) {
+        console.error('Error formatting listing:', e);
+        return null;
+      }
+    }).filter(l => l !== null);
 
     setListings(formattedListings);
   } catch (err) {
     console.error('Error loading listings:', err);
+    setListings([]);
   }
 };
 
@@ -160,7 +176,25 @@ export default function App() {
       reader.readAsDataURL(blob);
     });
   };
+const deleteListing = async (id) => {
+  try {
+    const { error } = await supabase
+      .from('listings')
+      .delete()
+      .eq('id', id);
 
+    if (error) throw error;
+
+    // Remove from local state immediately
+    setListings(listings.filter(listing => listing.id !== id));
+    setSelectedListing(null);
+    setCurrentPhotoIndex(0);
+    alert('Listing deleted!');
+  } catch (err) {
+    console.error('Error deleting listing:', err);
+    alert('Error deleting listing');
+  }
+};
   const handleListIt = async () => {
     if (!audioBlob || photos.length === 0 || !selectedCategory || !selectedLocation || !phone || !price) {
       alert('Joxal baaxalal bu nekk');

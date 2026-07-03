@@ -316,18 +316,15 @@ export default function App() {
             <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
 
             {/* Audio player */}
-            {listing.audioUrl && (
+           {listing.audioUrl && (
   <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
     <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
     <audio controls style={{ width: '100%', height: '40px' }} controlsList="nodownload">
-      <source src={listing.audioUrl} type="audio/webm" />
-      <source src={listing.audioUrlMp4} type="audio/mp4" />
-      <source src={listing.audioUrlWav} type="audio/wav" />
+      <source src={listing.audioUrl} />
       Your browser does not support audio playback.
     </audio>
   </div>
 )}
-
             {/* Info cards */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
               <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>

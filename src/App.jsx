@@ -372,19 +372,30 @@ export default function App() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
             
             {/* Voice Recording */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>1. Your voice</div>
-              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', textAlign: 'center', border: '1px solid #333' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
-                <button 
-                  onClick={isRecording ? stopRecording : startRecording}
-                  style={{ width: '100%', padding: '16px', background: '#0f6e56', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginBottom: '8px' }}>
-                  {isRecording ? 'Stop' : 'Record'}
-                </button>
-                <div style={{ fontSize: '11px', color: '#999' }}>{audioBlob ? '✓ Recorded' : 'Not recorded'}</div>
-              </div>
-            </div>
-
+<div style={{ marginBottom: '28px' }}>
+  <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>1. Your voice</div>
+  <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', textAlign: 'center', border: '1px solid #333' }}>
+    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
+    <button 
+      onClick={isRecording ? stopRecording : startRecording}
+      style={{ width: '100%', padding: '16px', background: '#0f6e56', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginBottom: '8px' }}>
+      {isRecording ? 'Stop' : 'Record'}
+    </button>
+    <div style={{ fontSize: '11px', color: '#999', marginBottom: '12px' }}>{audioBlob ? '✓ Recorded' : 'Not recorded'}</div>
+    
+    {/* Audio preview */}
+    {audioBlob && (
+      <div style={{ background: '#242424', borderRadius: '8px', padding: '12px', marginTop: '12px' }}>
+        <div style={{ fontSize: '10px', color: '#999', marginBottom: '8px' }}>Test audio:</div>
+        <audio 
+          controls 
+          style={{ width: '100%', height: '32px' }}
+          src={URL.createObjectURL(audioBlob)}
+        />
+      </div>
+    )}
+  </div>
+</div>
             {/* Photos (1-3) */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>2. Photos ({photos.length}/3)</div>

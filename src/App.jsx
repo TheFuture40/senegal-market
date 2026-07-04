@@ -37,12 +37,61 @@ export default function App() {
   const [isRecordingMessage, setIsRecordingMessage] = useState(false);
   const [userPhone, setUserPhone] = useState('');
 
+  const loadListings = async () => {
+    try {
+      const { data } = await supabase
+        .from('listings')
+        .select('id, category, location, phone, price, photo_data, audio_data, created_at')
+        .limit(30);
+
+      if (!data) {
+        setListings([]);
+        return;
+      }
+
+      const formattedListings = data.map(listing => {
+        try {
+          return {
+            id: listing.id,
+            photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+              ? JSON.parse(listing.photo_data)
+              : [listing.photo_data],
+            category: listing.category,
+            location: listing.location,
+            phone: listing.phone,
+            price: listing.price,
+            audioBase64: listing.audio_data || '',
+            timestamp: new Date(listing.created_at).toLocaleString()
+          };
+        } catch (e) {
+          return null;
+        }
+      }).filter(l => l !== null);
+
+      setListings(formattedListings);
+    } catch (err) {
+      setListings([]);
+    }
+  };
+
+  const loadMessages = async () => {
+    try {
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      setMessages(data || []);
+    } catch (err) {
+      setMessages([]);
+    }
+  };
+
   useEffect(() => {
     loadListings();
     loadMessages();
   }, []);
 
-  loadListings
   const startRecording = async () => {
     audioChunksRef.current = [];
     try {
@@ -51,12 +100,8 @@ export default function App() {
       });
       
       let mimeType = 'audio/webm';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/mp4';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/wav';
-      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/mp4';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/wav';
       
       const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mediaRecorderRef.current = mediaRecorder;
@@ -93,12 +138,8 @@ export default function App() {
       });
       
       let mimeType = 'audio/webm';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/mp4';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/wav';
-      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/mp4';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/wav';
       
       const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mediaRecorderRef.current = mediaRecorder;
@@ -140,24 +181,14 @@ export default function App() {
     });
   };
 
-  const triggerCamera = () => {
-    cameraInputRef.current?.click();
-  };
-
-  const triggerFilePicker = () => {
-    fileInputRef.current?.click();
-  };
-
-  const removePhoto = (index) => {
-    setPhotos(photos.filter((_, i) => i !== index));
-  };
+  const triggerCamera = () => cameraInputRef.current?.click();
+  const triggerFilePicker = () => fileInputRef.current?.click();
+  const removePhoto = (index) => setPhotos(photos.filter((_, i) => i !== index));
 
   const blobToBase64 = (blob) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(reader.result.split(',')[1]);
-      };
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
@@ -171,19 +202,14 @@ export default function App() {
 
     try {
       const audioBase64 = await blobToBase64(audioBlob);
-      
-      const { error } = await supabase
-        .from('listings')
-        .insert([
-          {
-            category: selectedCategory,
-            location: selectedLocation,
-            phone: phone,
-            price: price,
-            photo_data: JSON.stringify(photos),
-            audio_data: audioBase64
-          }
-        ]);
+      const { error } = await supabase.from('listings').insert([{
+        category: selectedCategory,
+        location: selectedLocation,
+        phone: phone,
+        price: price,
+        photo_data: JSON.stringify(photos),
+        audio_data: audioBase64
+      }]);
 
       if (error) throw error;
 
@@ -203,13 +229,8 @@ export default function App() {
 
   const deleteListing = async (id) => {
     try {
-      const { error } = await supabase
-        .from('listings')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from('listings').delete().eq('id', id);
       if (error) throw error;
-
       setListings(listings.filter(listing => listing.id !== id));
       setSelectedListing(null);
     } catch (err) {
@@ -222,7 +243,6 @@ export default function App() {
       alert('Record audio or type a message');
       return;
     }
-
     if (!userPhone) {
       alert('Please enter your phone number');
       return;
@@ -234,17 +254,13 @@ export default function App() {
         audioBase64 = await blobToBase64(messageAudioBlob);
       }
 
-      const { error } = await supabase
-        .from('messages')
-        .insert([
-          {
-            listing_id: selectedConversation.listing_id,
-            sender_phone: userPhone,
-            receiver_phone: selectedConversation.phone,
-            audio_data: audioBase64 || null,
-            message_text: messageText || null
-          }
-        ]);
+      const { error } = await supabase.from('messages').insert([{
+        listing_id: selectedConversation.id,
+        sender_phone: userPhone,
+        receiver_phone: selectedConversation.phone,
+        audio_data: audioBase64 || null,
+        message_text: messageText || null
+      }]);
 
       if (error) throw error;
 
@@ -253,7 +269,6 @@ export default function App() {
       setMessageText('');
       alert('Message sent!');
     } catch (err) {
-      console.error('Error sending message:', err);
       alert('Error sending message');
     }
   };
@@ -269,16 +284,11 @@ export default function App() {
   };
 
   const listingsByCategory = (cat) => {
-    if (selectedLocationFilter === 'All') {
-      return listings.filter(l => l.category === cat);
-    }
+    if (selectedLocationFilter === 'All') return listings.filter(l => l.category === cat);
     return listings.filter(l => l.category === cat && l.location === selectedLocationFilter);
   };
 
-  const handleTouchStart = (e) => {
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
+  const handleTouchStart = (e) => setTouchStart(e.targetTouches[0].clientX);
   const handleTouchEnd = (e) => {
     setTouchEnd(e.changedTouches[0].clientX);
     if (!selectedListing) return;
@@ -291,9 +301,8 @@ export default function App() {
     }
   };
 
-  // MESSAGING SCREENS
+  // MESSAGING
   if (currentTab === 'messages') {
-    // Message compose screen
     if (selectedConversation) {
       return (
         <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
@@ -305,67 +314,33 @@ export default function App() {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {messages
-                .filter(m => m.listing_id === selectedConversation.listing_id)
-                .map(msg => (
-                  <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
-                    <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
-                    {msg.message_text && (
-                      <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>
-                    )}
-                    {msg.audio_data && (
-                      <audio controls style={{ width: '100%', height: '32px' }} preload="auto">
-                        <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
-                        <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
-                      </audio>
-                    )}
-                    <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
-                  </div>
-                ))}
+              {messages.filter(m => m.listing_id === selectedConversation.id).map(msg => (
+                <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
+                  <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
+                  {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
+                  {msg.audio_data && (
+                    <audio controls style={{ width: '100%', height: '32px' }} preload="auto">
+                      <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
+                      <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
+                    </audio>
+                  )}
+                  <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
+                </div>
+              ))}
             </div>
 
             <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '16px', flexShrink: 0 }}>
-              <div style={{ marginBottom: '12px' }}>
-                <input 
-                  type="tel"
-                  value={userPhone}
-                  onChange={(e) => setUserPhone(e.target.value)}
-                  placeholder="Your phone"
-                  style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <button 
-                  onClick={isRecordingMessage ? stopRecordingMessage : startRecordingMessage}
-                  style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginBottom: '8px' }}>
-                  {isRecordingMessage ? '⏹ Stop Recording' : '🎤 Record Voice'}
-                </button>
-                {messageAudioBlob && <div style={{ fontSize: '10px', color: '#0f6e56', marginBottom: '8px' }}>✓ Voice recorded</div>}
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <input 
-                  type="text"
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  placeholder="Or type a message..."
-                  style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
-                />
-              </div>
-
-              <button 
-                onClick={sendMessage}
-                style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
-                Send Message
-              </button>
+              <input type="tel" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="Your phone" style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }} />
+              <button onClick={isRecordingMessage ? stopRecordingMessage : startRecordingMessage} style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginBottom: '8px' }}>{isRecordingMessage ? '⏹ Stop Recording' : '🎤 Record Voice'}</button>
+              {messageAudioBlob && <div style={{ fontSize: '10px', color: '#0f6e56', marginBottom: '8px' }}>✓ Voice recorded</div>}
+              <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Or type a message..." style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }} />
+              <button onClick={sendMessage} style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Send Message</button>
             </div>
           </div>
         </div>
       );
     }
 
-    // Messages list screen
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
         <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
@@ -379,11 +354,7 @@ export default function App() {
               if (!hasMessages) return null;
               const latestMessage = messages.find(m => m.listing_id === listing.id);
               return (
-                <div 
-                  key={listing.id}
-                  onClick={() => setSelectedConversation(listing)}
-                  style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer' }}
-                >
+                <div key={listing.id} onClick={() => setSelectedConversation(listing)} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div style={{ fontSize: '32px' }}>{categoryIcons[listing.category]}</div>
                     <div style={{ flex: 1 }}>
@@ -405,16 +376,14 @@ export default function App() {
           </div>
 
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', flexShrink: 0 }}>
-            <button 
-              onClick={() => setCurrentTab('browse')}
-              style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+            <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
           </div>
         </div>
       </div>
     );
   }
 
-  // DETAIL PAGE VIEW
+  // DETAIL PAGE
   if (selectedListing) {
     const listing = selectedListing;
     const currentPhoto = listing.photos[currentPhotoIndex];
@@ -462,7 +431,7 @@ export default function App() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
                 <div style={{ fontSize: '20px', marginBottom: '8px' }}>📍</div>
                 <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Location</div>
@@ -478,21 +447,14 @@ export default function App() {
 
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
             <a href={`tel:${listing.phone}`} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☎ Call</a>
-            <button 
-              onClick={() => {
-                setSelectedConversation(listing);
-                setCurrentTab('messages');
-              }}
-              style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              💬 Message
-            </button>
+            <button onClick={() => { setSelectedConversation(listing); setCurrentTab('messages'); }} style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬 Message</button>
           </div>
         </div>
       </div>
     );
   }
 
-// CREATE PAGE VIEW
+  // CREATE PAGE
   if (currentTab === 'create') {
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
@@ -504,152 +466,134 @@ export default function App() {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
-            
-            {/* Voice Recording */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>1. Your voice</div>
               <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', textAlign: 'center', border: '1px solid #333' }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
-                <button 
-                  onClick={isRecording ? stopRecording : startRecording} 
-                  style={{ width: '100%', padding: '16px', background: '#0f6e56', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginBottom: '12px' }}>
-                  {isRecording ? '⏹ Stop Recording' : '🎤 Record'}
-                </button>
-                
+                <button onClick={isRecording ? stopRecording : startRecording} style={{ width: '100%', padding: '16px', background: '#0f6e56', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginBottom: '12px' }}>{isRecording ? '⏹ Stop Recording' : '🎤 Record'}</button>
                 {!audioBlob ? (
                   <div style={{ fontSize: '11px', color: '#999' }}>Not recorded</div>
                 ) : (
                   <div style={{ background: '#242424', borderRadius: '8px', padding: '12px', marginTop: '12px' }}>
                     <div style={{ fontSize: '11px', color: '#0f6e56', marginBottom: '10px', fontWeight: '600' }}>✓ Recording saved</div>
-                    <audio 
-                      controls 
-                      style={{ width: '100%', height: '40px', marginBottom: '12px' }} 
-                      src={URL.createObjectURL(audioBlob)} 
-                      preload="auto"
-                    />
-                    <button 
-                      onClick={() => setAudioBlob(null)}
-                      style={{ width: '100%', padding: '10px', background: '#ff4444', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>
-                      🗑️ Delete Recording
-                    </button>
+                    <audio controls style={{ width: '100%', height: '40px', marginBottom: '12px' }} src={URL.createObjectURL(audioBlob)} preload="auto" />
+                    <button onClick={() => setAudioBlob(null)} style={{ width: '100%', padding: '10px', background: '#ff4444', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>🗑️ Delete Recording</button>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Photos (1-3) */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>2. Photos ({photos.length}/3)</div>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                <button 
-                  onClick={triggerCamera}
-                  style={{ flex: 1, padding: '16px', background: '#333', border: '1px solid #444', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>📷 Take</button>
-                <button 
-                  onClick={triggerFilePicker}
-                  disabled={photos.length >= 3}
-                  style={{ flex: 1, padding: '16px', background: photos.length >= 3 ? '#444' : '#1a1a1a', border: '1px solid #444', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: photos.length >= 3 ? 'not-allowed' : 'pointer', fontSize: '14px', opacity: photos.length >= 3 ? 0.5 : 1 }}>🖼 Choose</button>
+                <button onClick={triggerCamera} style={{ flex: 1, padding: '16px', background: '#333', border: '1px solid #444', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>📷 Take</button>
+                <button onClick={triggerFilePicker} disabled={photos.length >= 3} style={{ flex: 1, padding: '16px', background: photos.length >= 3 ? '#444' : '#1a1a1a', border: '1px solid #444', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: photos.length >= 3 ? 'not-allowed' : 'pointer', fontSize: '14px', opacity: photos.length >= 3 ? 0.5 : 1 }}>🖼 Choose</button>
               </div>
-              <input 
-                ref={cameraInputRef}
-                type="file" 
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhotoChange}
-                style={{ display: 'none' }}
-              />
-              <input 
-                ref={fileInputRef}
-                type="file" 
-                accept="image/*"
-                multiple
-                onChange={handlePhotoChange}
-                style={{ display: 'none' }}
-              />
-
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} style={{ display: 'none' }} />
+              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoChange} style={{ display: 'none' }} />
               {photos.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                   {photos.map((photo, idx) => (
                     <div key={idx} style={{ position: 'relative' }}>
                       <img src={photo} style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #333' }} />
-                      <button 
-                        onClick={() => removePhoto(idx)}
-                        style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ff4444', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                      <button onClick={() => removePhoto(idx)} style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ff4444', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Category */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>3. Category</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
                 {Object.entries(categoryIcons).map(([cat, icon]) => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    style={{ padding: '12px', background: selectedCategory === cat ? '#0f6e56' : '#1a1a1a', border: selectedCategory === cat ? '2px solid #0f6e56' : '1px solid #444', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '20px', fontWeight: '600' }}>
-                    {icon}
-                  </button>
+                  <button key={cat} onClick={() => setSelectedCategory(cat)} style={{ padding: '12px', background: selectedCategory === cat ? '#0f6e56' : '#1a1a1a', border: selectedCategory === cat ? '2px solid #0f6e56' : '1px solid #444', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '20px', fontWeight: '600' }}>{icon}</button>
                 ))}
               </div>
             </div>
 
-            {/* Location */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>4. Location</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 {LOCATIONS.slice(0, 8).map(loc => (
-                  <button
-                    key={loc}
-                    onClick={() => setSelectedLocation(loc)}
-                    style={{ padding: '10px', background: selectedLocation === loc ? '#0f6e56' : '#1a1a1a', border: selectedLocation === loc ? '2px solid #0f6e56' : '1px solid #444', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
-                    📍 {loc}
-                  </button>
+                  <button key={loc} onClick={() => setSelectedLocation(loc)} style={{ padding: '10px', background: selectedLocation === loc ? '#0f6e56' : '#1a1a1a', border: selectedLocation === loc ? '2px solid #0f6e56' : '1px solid #444', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>📍 {loc}</button>
                 ))}
               </div>
             </div>
 
-            {/* Phone */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>5. Your phone</div>
-              <input 
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="77 123 45 67"
-                style={{ width: '100%', padding: '12px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white' }}
-              />
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="77 123 45 67" style={{ width: '100%', padding: '12px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white' }} />
             </div>
 
-            {/* Price */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>6. Price</div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="2000"
-                  style={{ flex: 1, padding: '12px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', color: 'white' }}
-                />
+                <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="2000" style={{ flex: 1, padding: '12px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', color: 'white' }} />
                 <div style={{ padding: '12px', background: '#333', borderRadius: '8px', color: '#999', fontWeight: '600' }}>F</div>
               </div>
             </div>
-
           </div>
 
-          {/* Button */}
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
-            <button 
-              onClick={() => setCurrentTab('browse')}
-              style={{ flex: 1, padding: '14px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
-            <button 
-              onClick={handleListIt}
-              style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>List It</button>
+            <button onClick={() => setCurrentTab('browse')} style={{ flex: 1, padding: '14px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+            <button onClick={handleListIt} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>List It</button>
           </div>
         </div>
       </div>
     );
   }
+
+  // HOME/BROWSE PAGE
+  const uniqueLocations = getUniqueLocations();
+  
+  return (
+    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', color: 'white' }}>
+        <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333', flexShrink: 0 }}>
+          <div style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Sunu Market</div>
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+            <button onClick={() => setSelectedLocationFilter('All')} style={{ padding: '6px 14px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>All</button>
+            {uniqueLocations.map(loc => (
+              <button key={loc} onClick={() => setSelectedLocationFilter(loc)} style={{ padding: '6px 14px', background: selectedLocationFilter === loc ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === loc ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>📍 {loc}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          {['Yeet', 'Taaxat', 'Pampe', 'Jeep'].map(cat => {
+            const items = listingsByCategory(cat);
+            if (items.length === 0) return null;
+            const titles = { 'Yeet': '🐟 Fish', 'Taaxat': '🥬 Vegetables', 'Pampe': '🍌 Fruits', 'Jeep': '🍚 Rice' };
+            const colors = { 'Yeet': '#0f6e56', 'Taaxat': '#1D9E75', 'Pampe': '#D4A574', 'Jeep': '#B8860B' };
+            return (
+              <div key={cat} style={{ marginBottom: '28px' }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + colors[cat], color: 'white' }}>{titles[cat]}</div>
+                <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px' }}>
+                  {items.map(listing => (
+                    <div key={listing.id} onClick={() => { setSelectedListing(listing); setCurrentPhotoIndex(0); }} style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
+                      <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photos[0] ? `url(${listing.photos[0]})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px' }}>{!listing.photos[0] && categoryIcons[listing.category]}</div>
+                      <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {listings.length === 0 && (
+            <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
+              <div>No listings yet</div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <button onClick={() => setCurrentTab('create')} style={{ flex: 1, padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
+          <button onClick={() => setCurrentTab('messages')} style={{ flex: 1, padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>💬 Messages</button>
+        </div>
+      </div>
+    </div>
+  );
 }

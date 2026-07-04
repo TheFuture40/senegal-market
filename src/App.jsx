@@ -30,9 +30,16 @@ export default function App() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  const [messages, setMessages] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messageAudioBlob, setMessageAudioBlob] = useState(null);
+  const [messageText, setMessageText] = useState('');
+  const [isRecordingMessage, setIsRecordingMessage] = useState(false);
+  const [userPhone, setUserPhone] = useState('');
 
   useEffect(() => {
     loadListings();
+    loadMessages();
   }, []);
 
   const loadListings = async () => {
@@ -75,6 +82,21 @@ export default function App() {
     }
   };
 
+  const loadMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setMessages(data || []);
+    } catch (err) {
+      console.error('Error loading messages:', err);
+    }
+  };
+
   const startRecording = async () => {
     audioChunksRef.current = [];
     try {
@@ -114,6 +136,48 @@ export default function App() {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+    }
+  };
+
+  const startRecordingMessage = async () => {
+    audioChunksRef.current = [];
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      
+      let mimeType = 'audio/webm';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/mp4';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/wav';
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        setMessageAudioBlob(blob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecordingMessage(true);
+    } catch (err) {
+      alert('Njuroom sa microphone.');
+    }
+  };
+
+  const stopRecordingMessage = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecordingMessage(false);
     }
   };
 
@@ -207,6 +271,47 @@ export default function App() {
     }
   };
 
+  const sendMessage = async () => {
+    if (!messageAudioBlob && !messageText) {
+      alert('Record audio or type a message');
+      return;
+    }
+
+    if (!userPhone) {
+      alert('Please enter your phone number');
+      return;
+    }
+
+    try {
+      let audioBase64 = '';
+      if (messageAudioBlob) {
+        audioBase64 = await blobToBase64(messageAudioBlob);
+      }
+
+      const { error } = await supabase
+        .from('messages')
+        .insert([
+          {
+            listing_id: selectedConversation.listing_id,
+            sender_phone: userPhone,
+            receiver_phone: selectedConversation.phone,
+            audio_data: audioBase64 || null,
+            message_text: messageText || null
+          }
+        ]);
+
+      if (error) throw error;
+
+      await loadMessages();
+      setMessageAudioBlob(null);
+      setMessageText('');
+      alert('Message sent!');
+    } catch (err) {
+      console.error('Error sending message:', err);
+      alert('Error sending message');
+    }
+  };
+
   const categoryIcons = {
     'Yeet': '🐟', 'Jeep': '🍚', 'Taaxat': '🥬', 'Pampe': '🍌',
     'Jaxas': '🥔', 'Yaañu': '🥚', 'Jujuben': '🌰', 'Bii': '📦'
@@ -239,6 +344,129 @@ export default function App() {
       setCurrentPhotoIndex(currentPhotoIndex - 1);
     }
   };
+
+  // MESSAGING SCREENS
+  if (currentTab === 'messages') {
+    // Message compose screen
+    if (selectedConversation) {
+      return (
+        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+          <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <button onClick={() => setSelectedConversation(null)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+              <div style={{ fontSize: '14px', fontWeight: '600' }}>{selectedConversation.category}</div>
+              <div style={{ width: '28px' }}></div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {messages
+                .filter(m => m.listing_id === selectedConversation.listing_id)
+                .map(msg => (
+                  <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
+                    <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
+                    {msg.message_text && (
+                      <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>
+                    )}
+                    {msg.audio_data && (
+                      <audio controls style={{ width: '100%', height: '32px' }} preload="auto">
+                        <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
+                        <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
+                      </audio>
+                    )}
+                    <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
+                  </div>
+                ))}
+            </div>
+
+            <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '16px', flexShrink: 0 }}>
+              <div style={{ marginBottom: '12px' }}>
+                <input 
+                  type="tel"
+                  value={userPhone}
+                  onChange={(e) => setUserPhone(e.target.value)}
+                  placeholder="Your phone"
+                  style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <button 
+                  onClick={isRecordingMessage ? stopRecordingMessage : startRecordingMessage}
+                  style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginBottom: '8px' }}>
+                  {isRecordingMessage ? '⏹ Stop Recording' : '🎤 Record Voice'}
+                </button>
+                {messageAudioBlob && <div style={{ fontSize: '10px', color: '#0f6e56', marginBottom: '8px' }}>✓ Voice recorded</div>}
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <input 
+                  type="text"
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  placeholder="Or type a message..."
+                  style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
+                />
+              </div>
+
+              <button 
+                onClick={sendMessage}
+                style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+                Send Message
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Messages list screen
+    return (
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '16px', flexShrink: 0 }}>
+            <div style={{ fontSize: '18px', fontWeight: '600' }}>Messages</div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+            {listings.map(listing => {
+              const hasMessages = messages.some(m => m.listing_id === listing.id);
+              if (!hasMessages) return null;
+              const latestMessage = messages.find(m => m.listing_id === listing.id);
+              return (
+                <div 
+                  key={listing.id}
+                  onClick={() => setSelectedConversation(listing)}
+                  style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ fontSize: '32px' }}>{categoryIcons[listing.category]}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '600', marginBottom: '4px' }}>{listing.category}</div>
+                      <div style={{ fontSize: '12px', color: '#999' }}>💬 {latestMessage?.sender_phone}</div>
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{latestMessage?.message_text || '🎤 Voice message'}</div>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>{listing.price} F</div>
+                  </div>
+                </div>
+              );
+            })}
+            {listings.filter(l => messages.some(m => m.listing_id === l.id)).length === 0 && (
+              <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>💬</div>
+                <div>No messages yet</div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', flexShrink: 0 }}>
+            <button 
+              onClick={() => setCurrentTab('browse')}
+              style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // DETAIL PAGE VIEW
   if (selectedListing) {
@@ -304,7 +532,14 @@ export default function App() {
 
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
             <a href={`tel:${listing.phone}`} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☎ Call</a>
-            <a href={`https://wa.me/221${listing.phone.replace(/\s/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬 WhatsApp</a>
+            <button 
+              onClick={() => {
+                setSelectedConversation(listing);
+                setCurrentTab('messages');
+              }}
+              style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              💬 Message
+            </button>
           </div>
         </div>
       </div>
@@ -444,8 +679,9 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', flexShrink: 0 }}>
-          <button onClick={() => setCurrentTab('create')} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
+        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <button onClick={() => setCurrentTab('create')} style={{ flex: 1, padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
+          <button onClick={() => setCurrentTab('messages')} style={{ flex: 1, padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>💬 Messages</button>
         </div>
       </div>
     </div>

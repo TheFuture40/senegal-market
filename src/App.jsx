@@ -44,18 +44,12 @@ export default function App() {
 
   const loadListings = async () => {
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('listings')
       .select('id, category, location, phone, price, photo_data, audio_data, created_at')
       .limit(50);
 
-    if (error) {
-      // Silent fail - don't log
-      setListings([]);
-      return;
-    }
-
-    if (!data || data.length === 0) {
+    if (!data) {
       setListings([]);
       return;
     }
@@ -81,25 +75,22 @@ export default function App() {
 
     setListings(formattedListings);
   } catch (err) {
-    // Silent catch
-    setListings([]);
+    // Silent - do nothing
   }
 };
 
-  const loadMessages = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false });
+const loadMessages = async () => {
+  try {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-
-      setMessages(data || []);
-    } catch (err) {
-      console.error('Error loading messages:', err);
-    }
-  };
+    setMessages(data || []);
+  } catch (err) {
+    // Silent - do nothing
+  }
+};
 
   const startRecording = async () => {
     audioChunksRef.current = [];

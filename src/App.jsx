@@ -43,44 +43,48 @@ export default function App() {
   }, []);
 
   const loadListings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('id, category, location, phone, price, photo_data, audio_data, created_at')
-        .limit(50);
+  try {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
+      .limit(50);
 
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        setListings([]);
-        return;
-      }
-
-      const formattedListings = data.map(listing => {
-        try {
-          return {
-            id: listing.id,
-            photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-              ? JSON.parse(listing.photo_data)
-              : [listing.photo_data],
-            category: listing.category,
-            location: listing.location,
-            phone: listing.phone,
-            price: listing.price,
-            audioBase64: listing.audio_data || '',
-            timestamp: new Date(listing.created_at).toLocaleString()
-          };
-        } catch (e) {
-          return null;
-        }
-      }).filter(l => l !== null);
-
-      setListings(formattedListings);
-    } catch (err) {
-      console.error('Error loading listings:', err);
+    if (error) {
+      // Silent fail - don't log
       setListings([]);
+      return;
     }
-  };
+
+    if (!data || data.length === 0) {
+      setListings([]);
+      return;
+    }
+
+    const formattedListings = data.map(listing => {
+      try {
+        return {
+          id: listing.id,
+          photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+            ? JSON.parse(listing.photo_data)
+            : [listing.photo_data],
+          category: listing.category,
+          location: listing.location,
+          phone: listing.phone,
+          price: listing.price,
+          audioBase64: listing.audio_data || '',
+          timestamp: new Date(listing.created_at).toLocaleString()
+        };
+      } catch (e) {
+        return null;
+      }
+    }).filter(l => l !== null);
+
+    setListings(formattedListings);
+  } catch (err) {
+    // Silent catch
+    setListings([]);
+  }
+};
 
   const loadMessages = async () => {
     try {

@@ -558,20 +558,33 @@ export default function App() {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>1. Your voice</div>
-              <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', textAlign: 'center', border: '1px solid #333' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
-                <button onClick={isRecording ? stopRecording : startRecording} style={{ width: '100%', padding: '16px', background: '#0f6e56', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginBottom: '8px' }}>{isRecording ? 'Stop' : 'Record'}</button>
-                <div style={{ fontSize: '11px', color: '#999', marginBottom: '12px' }}>{audioBlob ? '✓ Recorded' : 'Not recorded'}</div>
-                {audioBlob && (
-                  <div style={{ background: '#242424', borderRadius: '8px', padding: '12px' }}>
-                    <div style={{ fontSize: '10px', color: '#999', marginBottom: '8px' }}>Test audio:</div>
-                    <audio controls style={{ width: '100%', height: '32px' }} src={URL.createObjectURL(audioBlob)} />
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* Voice Recording */}
+<div style={{ marginBottom: '28px' }}>
+  <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>1. Your voice</div>
+  <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', textAlign: 'center', border: '1px solid #333' }}>
+    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
+    <button onClick={isRecording ? stopRecording : startRecording} style={{ width: '100%', padding: '16px', background: '#0f6e56', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginBottom: '8px' }}>{isRecording ? '⏹ Stop Recording' : '🎤 Record'}</button>
+    
+    {!audioBlob ? (
+      <div style={{ fontSize: '11px', color: '#999' }}>Not recorded</div>
+    ) : (
+      <div style={{ background: '#242424', borderRadius: '8px', padding: '12px', marginTop: '12px' }}>
+        <div style={{ fontSize: '11px', color: '#0f6e56', marginBottom: '10px', fontWeight: '600' }}>✓ Recording saved</div>
+        <audio 
+          controls 
+          style={{ width: '100%', height: '40px', marginBottom: '12px' }} 
+          src={URL.createObjectURL(audioBlob)} 
+          preload="auto"
+        />
+        <button 
+          onClick={() => setAudioBlob(null)}
+          style={{ width: '100%', padding: '10px', background: '#ff4444', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>
+          🗑️ Delete Recording
+        </button>
+      </div>
+    )}
+  </div>
+</div>
 
             <div style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>2. Photos ({photos.length}/3)</div>

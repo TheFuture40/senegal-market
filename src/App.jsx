@@ -37,43 +37,55 @@ export default function App() {
   const [isRecordingMessage, setIsRecordingMessage] = useState(false);
   const [userPhone, setUserPhone] = useState('');
 
-  const loadListings = async () => {
-    try {
-      const { data } = await supabase
-        .from('listings')
-        .select('id, category, location, phone, price, photo_data, audio_data, created_at')
-        .limit(30);
+const loadListings = async (retryCount = 0) => {
+  try {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
+      .limit(30);
 
-      if (!data) {
-        setListings([]);
+    if (error) {
+      if (retryCount < 2) {
+        setTimeout(() => loadListings(retryCount + 1), 1500);
         return;
       }
-
-      const formattedListings = data.map(listing => {
-        try {
-          return {
-            id: listing.id,
-            photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-              ? JSON.parse(listing.photo_data)
-              : [listing.photo_data],
-            category: listing.category,
-            location: listing.location,
-            phone: listing.phone,
-            price: listing.price,
-            audioBase64: listing.audio_data || '',
-            timestamp: new Date(listing.created_at).toLocaleString()
-          };
-        } catch (e) {
-          return null;
-        }
-      }).filter(l => l !== null);
-
-      setListings(formattedListings);
-    } catch (err) {
       setListings([]);
+      return;
     }
-  };
 
+    if (!data) {
+      setListings([]);
+      return;
+    }
+
+    const formattedListings = data.map(listing => {
+      try {
+        return {
+          id: listing.id,
+          photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+            ? JSON.parse(listing.photo_data)
+            : [listing.photo_data],
+          category: listing.category,
+          location: listing.location,
+          phone: listing.phone,
+          price: listing.price,
+          audioBase64: listing.audio_data || '',
+          timestamp: new Date(listing.created_at).toLocaleString()
+        };
+      } catch (e) {
+        return null;
+      }
+    }).filter(l => l !== null);
+
+    setListings(formattedListings);
+  } catch (err) {
+    if (retryCount < 2) {
+      setTimeout(() => loadListings(retryCount + 1), 1500);
+      return;
+    }
+    setListings([]);
+  }
+};
   const loadMessages = async () => {
     try {
       const { data } = await supabase
@@ -195,25 +207,27 @@ export default function App() {
   };
 
   const handleListIt = async () => {
-    if (!audioBlob || photos.length === 0 || !selectedCategory || !selectedLocation || !phone || !price) {
-      alert('Joxal baaxalal bu nekk');
-      return;
-    }
+  if (!audioBlob || photos.length === 0 || !selectedCategory || !selectedLocation || !phone || !price) {
+    alert('Joxal baaxalal bu nekk');
+    return;
+  }
 
-    try {
-      const audioBase64 = await blobToBase64(audioBlob);
-      const { error } = await supabase.from('listings').insert([{
-        category: selectedCategory,
-        location: selectedLocation,
-        phone: phone,
-        price: price,
-        photo_data: JSON.stringify(photos),
-        audio_data: audioBase64
-      }]);
+  try {
+    const audioBase64 = await blobToBase64(audioBlob);
+    const { error } = await supabase.from('listings').insert([{
+      category: selectedCategory,
+      location: selectedLocation,
+      phone: phone,
+      price: price,
+      photo_data: JSON.stringify(photos),
+      audio_data: audioBase64
+    }]);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      await loadListings();
+    // Wait 1 second then refresh
+    setTimeout(() => {
+      loadListings();
       setAudioBlob(null);
       setPhotos([]);
       setSelectedCategory(null);
@@ -222,10 +236,11 @@ export default function App() {
       setPrice('');
       setCurrentTab('browse');
       alert('Baaxal liggéey naa!');
-    } catch (err) {
-      alert('Njuroom sa.');
-    }
-  };
+    }, 1000);
+  } catch (err) {
+    alert('Njuroom sa.');
+  }
+};
 
   const deleteListing = async (id) => {
     try {

@@ -225,18 +225,19 @@ const loadListings = async (retryCount = 0) => {
 
     if (error) throw error;
 
-    // Wait 1 second then refresh
-    setTimeout(() => {
-      loadListings();
-      setAudioBlob(null);
-      setPhotos([]);
-      setSelectedCategory(null);
-      setSelectedLocation(null);
-      setPhone('');
-      setPrice('');
-      setCurrentTab('browse');
-      alert('Baaxal liggéey naa!');
-    }, 1000);
+    setAudioBlob(null);
+    setPhotos([]);
+    setSelectedCategory(null);
+    setSelectedLocation(null);
+    setPhone('');
+    setPrice('');
+    setCurrentTab('browse');
+    
+    alert('Baaxal liggéey naa!');
+    
+    // Refresh listings (has retry logic built in)
+    await new Promise(resolve => setTimeout(resolve, 800));
+    loadListings();
   } catch (err) {
     alert('Njuroom sa.');
   }

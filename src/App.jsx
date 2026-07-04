@@ -213,15 +213,22 @@ const loadListings = async (retryCount = 0) => {
   }
 
   try {
+    alert('Saving listing...');
     const audioBase64 = await blobToBase64(audioBlob);
-    const { error } = await supabase.from('listings').insert([{
-      category: selectedCategory,
-      location: selectedLocation,
-      phone: phone,
-      price: price,
-      photo_data: JSON.stringify(photos),
-      audio_data: audioBase64
-    }]);
+    
+    const { error } = await Promise.race([
+      supabase.from('listings').insert([{
+        category: selectedCategory,
+        location: selectedLocation,
+        phone: phone,
+        price: price,
+        photo_data: JSON.stringify(photos),
+        audio_data: audioBase64
+      }]),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 10000)
+      )
+    ]);
 
     if (error) throw error;
 
@@ -235,11 +242,12 @@ const loadListings = async (retryCount = 0) => {
     
     alert('Baaxal liggéey naa!');
     
-    // Refresh listings (has retry logic built in)
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Give server time to process
+    await new Promise(resolve => setTimeout(resolve, 2000));
     loadListings();
   } catch (err) {
-    alert('Njuroom sa.');
+    console.error('Error:', err);
+    alert('Njuroom sa. Jongale biir.');
   }
 };
 

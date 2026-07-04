@@ -42,56 +42,7 @@ export default function App() {
     loadMessages();
   }, []);
 
-  const loadListings = async () => {
-  try {
-    const { data } = await supabase
-      .from('listings')
-      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
-      .limit(50);
-
-    if (!data) {
-      setListings([]);
-      return;
-    }
-
-    const formattedListings = data.map(listing => {
-      try {
-        return {
-          id: listing.id,
-          photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-            ? JSON.parse(listing.photo_data)
-            : [listing.photo_data],
-          category: listing.category,
-          location: listing.location,
-          phone: listing.phone,
-          price: listing.price,
-          audioBase64: listing.audio_data || '',
-          timestamp: new Date(listing.created_at).toLocaleString()
-        };
-      } catch (e) {
-        return null;
-      }
-    }).filter(l => l !== null);
-
-    setListings(formattedListings);
-  } catch (err) {
-    // Silent - do nothing
-  }
-};
-
-const loadMessages = async () => {
-  try {
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    setMessages(data || []);
-  } catch (err) {
-    // Silent - do nothing
-  }
-};
-
+  loadListings
   const startRecording = async () => {
     audioChunksRef.current = [];
     try {

@@ -332,10 +332,12 @@ const loadListings = async (retryCount = 0) => {
                   {msg.audio_data && (
   <button 
     onClick={() => {
-      const audio = new Audio(`data:audio/webm;base64,${msg.audio_data}`);
-      audio.play().catch(e => {
-        const audio2 = new Audio(`data:audio/mp4;base64,${msg.audio_data}`);
-        audio2.play().catch(() => console.log('Audio playback failed'));
+      const audioUrl = `data:audio/webm;base64,${msg.audio_data}`;
+      const audio = new Audio(audioUrl);
+      audio.play().catch(() => {
+        const audioUrl2 = `data:audio/mp4;base64,${msg.audio_data}`;
+        const audio2 = new Audio(audioUrl2);
+        audio2.play();
       });
     }}
     style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: '#0f6e56', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginTop: '8px' }}>
@@ -442,30 +444,19 @@ const loadListings = async (retryCount = 0) => {
             {listing.audioBase64 && (
   <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
     <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-      <button 
-        onClick={() => {
-          const audio = new Audio(`data:audio/webm;base64,${listing.audioBase64}`);
-          audio.play().catch(e => {
-            const audio2 = new Audio(`data:audio/mp4;base64,${listing.audioBase64}`);
-            audio2.play().catch(() => console.log('Audio playback failed'));
-          });
-        }}
-        style={{ flex: 1, padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>
-        ▶ Play Audio
-      </button>
-      <button 
-        onClick={() => {
-          const audio = new Audio(`data:audio/mp4;base64,${listing.audioBase64}`);
-          audio.play().catch(e => {
-            const audio2 = new Audio(`data:audio/webm;base64,${listing.audioBase64}`);
-            audio2.play().catch(() => console.log('Audio playback failed'));
-          });
-        }}
-        style={{ padding: '12px 16px', background: '#333', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
-        🔊
-      </button>
-    </div>
+    <button 
+      onClick={() => {
+        const audioUrl = `data:audio/webm;base64,${listing.audioBase64}`;
+        const audio = new Audio(audioUrl);
+        audio.play().catch(() => {
+          const audioUrl2 = `data:audio/mp4;base64,${listing.audioBase64}`;
+          const audio2 = new Audio(audioUrl2);
+          audio2.play();
+        });
+      }}
+      style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+      ▶ Play Audio
+    </button>
   </div>
 )}
 

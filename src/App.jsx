@@ -37,20 +37,6 @@ export default function App() {
   const [isRecordingMessage, setIsRecordingMessage] = useState(false);
   const [userPhone, setUserPhone] = useState('');
 
-  const playAudio = (audioBase64) => {
-  try {
-    const audio = new Audio();
-    audio.src = 'data:audio/webm;base64,' + audioBase64;
-    audio.play().catch(() => {
-      const audio2 = new Audio();
-      audio2.src = 'data:audio/mp4;base64,' + audioBase64;
-      audio2.play();
-    });
-  } catch (err) {
-    console.log('Audio error:', err);
-  }
-};
-
 const loadListings = async (retryCount = 0) => {
   try {
     const { data, error } = await supabase
@@ -344,11 +330,14 @@ const loadListings = async (retryCount = 0) => {
                   <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
                   {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
                   {msg.audio_data && (
-  <button 
-    onClick={() => playAudio(msg.audio_data)}
-    style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: '#0f6e56', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginTop: '8px' }}>
-    ▶ Play Message
-  </button>
+  <audio 
+    controls 
+    style={{ width: '100%', height: '32px', marginTop: '8px' }}
+    preload="auto"
+  >
+    <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
+    <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
+  </audio>
 )}
                   <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
                 </div>
@@ -450,11 +439,14 @@ const loadListings = async (retryCount = 0) => {
             {listing.audioBase64 && (
   <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
     <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-    <button 
-      onClick={() => playAudio(listing.audioBase64)}
-      style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
-      ▶ Play Audio
-    </button>
+    <audio 
+      controls 
+      style={{ width: '100%', height: '44px' }}
+      preload="auto"
+    >
+      <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
+      <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
+    </audio>
   </div>
 )}
 

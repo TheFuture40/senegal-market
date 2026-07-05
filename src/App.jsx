@@ -330,11 +330,18 @@ const loadListings = async (retryCount = 0) => {
                   <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
                   {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
                   {msg.audio_data && (
-                    <audio controls style={{ width: '100%', height: '32px' }} preload="auto">
-                      <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
-                      <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
-                    </audio>
-                  )}
+  <button 
+    onClick={() => {
+      const audio = new Audio(`data:audio/webm;base64,${msg.audio_data}`);
+      audio.play().catch(e => {
+        const audio2 = new Audio(`data:audio/mp4;base64,${msg.audio_data}`);
+        audio2.play().catch(() => console.log('Audio playback failed'));
+      });
+    }}
+    style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: '#0f6e56', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginTop: '8px' }}>
+    ▶ Play Message
+  </button>
+)}
                   <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
                 </div>
               ))}
@@ -433,14 +440,34 @@ const loadListings = async (retryCount = 0) => {
             <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
 
             {listing.audioBase64 && (
-              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
-                <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-                <audio controls style={{ width: '100%', height: '40px' }} preload="auto">
-                  <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
-                  <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
-                </audio>
-              </div>
-            )}
+  <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
+    <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <button 
+        onClick={() => {
+          const audio = new Audio(`data:audio/webm;base64,${listing.audioBase64}`);
+          audio.play().catch(e => {
+            const audio2 = new Audio(`data:audio/mp4;base64,${listing.audioBase64}`);
+            audio2.play().catch(() => console.log('Audio playback failed'));
+          });
+        }}
+        style={{ flex: 1, padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>
+        ▶ Play Audio
+      </button>
+      <button 
+        onClick={() => {
+          const audio = new Audio(`data:audio/mp4;base64,${listing.audioBase64}`);
+          audio.play().catch(e => {
+            const audio2 = new Audio(`data:audio/webm;base64,${listing.audioBase64}`);
+            audio2.play().catch(() => console.log('Audio playback failed'));
+          });
+        }}
+        style={{ padding: '12px 16px', background: '#333', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+        🔊
+      </button>
+    </div>
+  </div>
+)}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>

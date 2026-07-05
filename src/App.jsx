@@ -37,48 +37,49 @@ export default function App() {
   const [isRecordingMessage, setIsRecordingMessage] = useState(false);
   const [userPhone, setUserPhone] = useState('');
 
-const loadListings = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
-      .limit(30)
-      .order('created_at', { ascending: false });
+  const loadListings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('id, category, location, phone, price, photo_data, audio_data, created_at')
+        .limit(30)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      setListings([]);
-      return;
-    }
-
-    if (!data) {
-      setListings([]);
-      return;
-    }
-
-    const formattedListings = data.map(listing => {
-      try {
-        return {
-          id: listing.id,
-          photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-            ? JSON.parse(listing.photo_data)
-            : [listing.photo_data],
-          category: listing.category,
-          location: listing.location,
-          phone: listing.phone,
-          price: listing.price,
-          audioBase64: listing.audio_data || '',
-          timestamp: new Date(listing.created_at).toLocaleString()
-        };
-      } catch (e) {
-        return null;
+      if (error) {
+        setListings([]);
+        return;
       }
-    }).filter(l => l !== null);
 
-    setListings(formattedListings);
-  } catch (err) {
-    setListings([]);
-  }
-};
+      if (!data) {
+        setListings([]);
+        return;
+      }
+
+      const formattedListings = data.map(listing => {
+        try {
+          return {
+            id: listing.id,
+            photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+              ? JSON.parse(listing.photo_data)
+              : [listing.photo_data],
+            category: listing.category,
+            location: listing.location,
+            phone: listing.phone,
+            price: listing.price,
+            audioBase64: listing.audio_data || '',
+            timestamp: new Date(listing.created_at).toLocaleString()
+          };
+        } catch (e) {
+          return null;
+        }
+      }).filter(l => l !== null);
+
+      setListings(formattedListings);
+    } catch (err) {
+      setListings([]);
+    }
+  };
+
   const loadMessages = async () => {
     try {
       const { data } = await supabase
@@ -91,16 +92,6 @@ const loadListings = async () => {
       setMessages([]);
     }
   };
-  {listing.audioBase64 && (
-  <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
-    <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-    <audio controls style={{ width: '100%', height: '44px' }} preload="auto">
-      <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
-      <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
-    </audio>
-  </div>
-)}
-
 
   useEffect(() => {
     loadListings();
@@ -210,83 +201,108 @@ const loadListings = async () => {
   };
 
   const handleListIt = async () => {
-  if (!audioBlob || photos.length === 0 || !selectedCategory || !selectedLocation || !phone || !price) {
-    alert('Joxal baaxalal bu nekk');
-    return;
-  }
-
-  try {
-    alert('Saving listing...');
-    const audioBase64 = await blobToBase64(audioBlob);
-    
-    const { error, data } = await supabase.from('listings').insert([{
-      category: selectedCategory,
-      location: selectedLocation,
-      phone: phone,
-      price: price,
-      photo_data: JSON.stringify(photos),
-      audio_data: audioBase64,
-      seller_phone: phone
-    }]);
-
-    if (error) {
-      console.error('Insert error:', error);
-      throw error;
+    if (!audioBlob || photos.length === 0 || !selectedCategory || !selectedLocation || !phone || !price) {
+      alert('Joxal baaxalal bu nekk');
+      return;
     }
 
-    console.log('Listing created:', data);
+    try {
+      alert('Saving listing...');
+      const audioBase64 = await blobToBase64(audioBlob);
+      
+      const { error } = await supabase.from('listings').insert([{
+        category: selectedCategory,
+        location: selectedLocation,
+        phone: phone,
+        price: price,
+        photo_data: JSON.stringify(photos),
+        audio_data: audioBase64,
+        seller_phone: phone
+      }]);
 
-    setAudioBlob(null);
-    setPhotos([]);
-    setSelectedCategory(null);
-    setSelectedLocation(null);
-    setPhone('');
-    setPrice('');
-    setCurrentTab('browse');
-    
-    alert('Baaxal liggéey naa!');
-    
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    loadListings();
-  } catch (err) {
-    console.error('Full error:', err);
-    alert('Error: ' + (err.message || 'Njuroom sa.'));
-  }
-};
+      if (error) throw error;
+
+      setAudioBlob(null);
+      setPhotos([]);
+      setSelectedCategory(null);
+      setSelectedLocation(null);
+      setPhone('');
+      setPrice('');
+      setCurrentTab('browse');
+      
+      alert('Baaxal liggéey naa!');
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      loadListings();
+    } catch (err) {
+      alert('Njuroom sa.');
+    }
+  };
 
   const deleteListing = async (id) => {
-  const listing = listings.find(l => l.id === id);
-  
-  // Check if current user is the seller
-  if (!userPhone) {
-    alert('Please enter your phone number first');
-    return;
-  }
+    const listing = listings.find(l => l.id === id);
+    
+    if (!userPhone || listing.phone !== userPhone) {
+      alert('Only the seller can delete this listing');
+      return;
+    }
 
-  if (listing.phone !== userPhone) {
-    alert('Only the seller can delete this listing');
-    return;
-  }
+    if (!window.confirm('Delete this listing?')) {
+      return;
+    }
 
-  if (!window.confirm('Delete this listing?')) {
-    return;
-  }
+    try {
+      const { error } = await supabase
+        .from('listings')
+        .delete()
+        .eq('id', id);
 
-  try {
-    const { error } = await supabase
-      .from('listings')
-      .delete()
-      .eq('id', id);
+      if (error) throw error;
 
-    if (error) throw error;
+      setListings(listings.filter(l => l.id !== id));
+      setSelectedListing(null);
+      alert('Baaxal teejindi');
+    } catch (err) {
+      alert('Error deleting listing');
+    }
+  };
 
-    setListings(listings.filter(l => l.id !== id));
-    setSelectedListing(null);
-    alert('Baaxal teejindi');
-  } catch (err) {
-    alert('Error deleting listing');
-  }
-};
+  const sendMessage = async () => {
+    if (!messageAudioBlob && !messageText) {
+      alert('Record audio or type a message');
+      return;
+    }
+
+    if (!userPhone) {
+      alert('Please enter your phone number');
+      return;
+    }
+
+    try {
+      let audioBase64 = '';
+      if (messageAudioBlob) {
+        audioBase64 = await blobToBase64(messageAudioBlob);
+      }
+
+      const { error } = await supabase.from('messages').insert([{
+        listing_id: selectedConversation.id,
+        sender_phone: userPhone,
+        receiver_phone: selectedConversation.phone,
+        audio_data: audioBase64 || null,
+        message_text: messageText || null
+      }]);
+
+      if (error) throw error;
+
+      await loadMessages();
+      setMessageAudioBlob(null);
+      setMessageText('');
+      alert('Message sent!');
+    } catch (err) {
+      alert('Error sending message');
+    }
+  };
+
   const categoryIcons = {
     'Yeet': '🐟', 'Jeep': '🍚', 'Taaxat': '🥬', 'Pampe': '🍌',
     'Jaxas': '🥔', 'Yaañu': '🥚', 'Jujuben': '🌰', 'Bii': '📦'
@@ -333,11 +349,11 @@ const loadListings = async () => {
                   <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
                   {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
                   {msg.audio_data && (
-                  <audio controls style={{ width: '100%', height: '32px', marginTop: '8px' }} preload="auto">
-                    <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
-                    <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
-                  </audio>
-)}
+                    <audio controls style={{ width: '100%', height: '32px' }} preload="auto">
+                      <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
+                      <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
+                    </audio>
+                  )}
                   <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
                 </div>
               ))}
@@ -395,7 +411,7 @@ const loadListings = async () => {
         </div>
       </div>
     );
- 
+  }
 
   // DETAIL PAGE
   if (selectedListing) {
@@ -409,7 +425,9 @@ const loadListings = async () => {
             <button onClick={() => { setSelectedListing(null); setCurrentPhotoIndex(0); }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
-              <button onClick={() => { if (window.confirm('Delete this listing?')) { deleteListing(listing.id); } }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#ff4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px', color: 'white', fontWeight: 'bold' }}>🗑️</button>
+              {listing.phone === userPhone && (
+                <button onClick={() => { if (window.confirm('Delete this listing?')) { deleteListing(listing.id); } }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#ff4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px', color: 'white', fontWeight: 'bold' }}>🗑️</button>
+              )}
             </div>
           </div>
 
@@ -435,25 +453,15 @@ const loadListings = async () => {
 
             <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
 
-            {selectedListing && (
-  <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
-    <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-    <button 
-      onClick={async () => {
-        const audioData = await loadListingAudio(selectedListing.id);
-        if (audioData) {
-          const audio = new Audio('data:audio/webm;base64,' + audioData);
-          audio.play().catch(() => {
-            const audio2 = new Audio('data:audio/mp4;base64,' + audioData);
-            audio2.play();
-          });
-        }
-      }}
-      style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
-      ▶ Play Audio
-    </button>
-  </div>
-)}
+            {listing.audioBase64 && (
+              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
+                <audio controls style={{ width: '100%', height: '44px' }} preload="auto">
+                  <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
+                  <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
+                </audio>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
@@ -477,8 +485,6 @@ const loadListings = async () => {
       </div>
     );
   }
-
-   }
 
   // CREATE PAGE
   if (currentTab === 'create') {
@@ -579,9 +585,9 @@ const loadListings = async () => {
         <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333', flexShrink: 0 }}>
           <div style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Sunu Market</div>
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
-            <button onClick={() => setSelectedLocationFilter('All')} style={{ padding: '6px 14px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>All</button>
+            <button onClick={() => setSelectedLocationFilter('All')} style={{ padding: '6px 12px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>All</button>
             {uniqueLocations.map(loc => (
-              <button key={loc} onClick={() => setSelectedLocationFilter(loc)} style={{ padding: '6px 14px', background: selectedLocationFilter === loc ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === loc ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>📍 {loc}</button>
+              <button key={loc} onClick={() => setSelectedLocationFilter(loc)} style={{ padding: '6px 12px', background: selectedLocationFilter === loc ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === loc ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>📍 {loc}</button>
             ))}
           </div>
         </div>

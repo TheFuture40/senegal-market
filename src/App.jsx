@@ -330,14 +330,10 @@ const loadListings = async (retryCount = 0) => {
                   <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
                   {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
                   {msg.audio_data && (
-  <audio 
-    controls 
-    style={{ width: '100%', height: '32px', marginTop: '8px' }}
-    preload="auto"
-  >
-    <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
-    <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
-  </audio>
+                  <audio controls style={{ width: '100%', height: '32px', marginTop: '8px' }} preload="auto">
+                    <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
+                    <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
+                  </audio>
 )}
                   <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
                 </div>
@@ -439,11 +435,7 @@ const loadListings = async (retryCount = 0) => {
             {listing.audioBase64 && (
   <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
     <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-    <audio 
-      controls 
-      style={{ width: '100%', height: '44px' }}
-      preload="auto"
-    >
+    <audio controls style={{ width: '100%', height: '44px' }} preload="auto">
       <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
       <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
     </audio>

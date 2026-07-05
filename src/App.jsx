@@ -41,8 +41,8 @@ const loadListings = async () => {
   try {
     const { data, error } = await supabase
       .from('listings')
-      .select('id, category, location, phone, price, photo_data, created_at')
-      .limit(20)
+      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
+      .limit(30)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -66,7 +66,7 @@ const loadListings = async () => {
           location: listing.location,
           phone: listing.phone,
           price: listing.price,
-          audioBase64: '', // Don't fetch audio yet
+          audioBase64: listing.audio_data || '',
           timestamp: new Date(listing.created_at).toLocaleString()
         };
       } catch (e) {
@@ -91,20 +91,15 @@ const loadListings = async () => {
       setMessages([]);
     }
   };
-  const loadListingAudio = async (id) => {
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('audio_data')
-      .eq('id', id)
-      .single();
-
-    if (error || !data) return null;
-    return data.audio_data;
-  } catch (err) {
-    return null;
-  }
-};
+  {listing.audioBase64 && (
+  <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
+    <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
+    <audio controls style={{ width: '100%', height: '44px' }} preload="auto">
+      <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
+      <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
+    </audio>
+  </div>
+)}
 
 
   useEffect(() => {

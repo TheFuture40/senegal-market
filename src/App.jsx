@@ -252,51 +252,38 @@ const loadListings = async (retryCount = 0) => {
 };
 
   const deleteListing = async (id) => {
-    try {
-      const { error } = await supabase.from('listings').delete().eq('id', id);
-      if (error) throw error;
-      setListings(listings.filter(listing => listing.id !== id));
-      setSelectedListing(null);
-    } catch (err) {
-      alert('Error deleting listing');
-    }
-  };
+  const listing = listings.find(l => l.id === id);
+  
+  // Check if current user is the seller
+  if (!userPhone) {
+    alert('Please enter your phone number first');
+    return;
+  }
 
-  const sendMessage = async () => {
-    if (!messageAudioBlob && !messageText) {
-      alert('Record audio or type a message');
-      return;
-    }
-    if (!userPhone) {
-      alert('Please enter your phone number');
-      return;
-    }
+  if (listing.phone !== userPhone) {
+    alert('Only the seller can delete this listing');
+    return;
+  }
 
-    try {
-      let audioBase64 = '';
-      if (messageAudioBlob) {
-        audioBase64 = await blobToBase64(messageAudioBlob);
-      }
+  if (!window.confirm('Delete this listing?')) {
+    return;
+  }
 
-      const { error } = await supabase.from('messages').insert([{
-        listing_id: selectedConversation.id,
-        sender_phone: userPhone,
-        receiver_phone: selectedConversation.phone,
-        audio_data: audioBase64 || null,
-        message_text: messageText || null
-      }]);
+  try {
+    const { error } = await supabase
+      .from('listings')
+      .delete()
+      .eq('id', id);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      await loadMessages();
-      setMessageAudioBlob(null);
-      setMessageText('');
-      alert('Message sent!');
-    } catch (err) {
-      alert('Error sending message');
-    }
-  };
-
+    setListings(listings.filter(l => l.id !== id));
+    setSelectedListing(null);
+    alert('Baaxal teejindi');
+  } catch (err) {
+    alert('Error deleting listing');
+  }
+};
   const categoryIcons = {
     'Yeet': '🐟', 'Jeep': '🍚', 'Taaxat': '🥬', 'Pampe': '🍌',
     'Jaxas': '🥔', 'Yaañu': '🥚', 'Jujuben': '🌰', 'Bii': '📦'

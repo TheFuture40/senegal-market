@@ -216,21 +216,22 @@ const loadListings = async (retryCount = 0) => {
     alert('Saving listing...');
     const audioBase64 = await blobToBase64(audioBlob);
     
-    const { error } = await Promise.race([
-      supabase.from('listings').insert([{
-        category: selectedCategory,
-        location: selectedLocation,
-        phone: phone,
-        price: price,
-        photo_data: JSON.stringify(photos),
-        audio_data: audioBase64
-      }]),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('timeout')), 10000)
-      )
-    ]);
+    const { error, data } = await supabase.from('listings').insert([{
+      category: selectedCategory,
+      location: selectedLocation,
+      phone: phone,
+      price: price,
+      photo_data: JSON.stringify(photos),
+      audio_data: audioBase64,
+      seller_phone: phone
+    }]);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Insert error:', error);
+      throw error;
+    }
+
+    console.log('Listing created:', data);
 
     setAudioBlob(null);
     setPhotos([]);
@@ -242,12 +243,11 @@ const loadListings = async (retryCount = 0) => {
     
     alert('Baaxal liggéey naa!');
     
-    // Give server time to process
     await new Promise(resolve => setTimeout(resolve, 2000));
     loadListings();
   } catch (err) {
-    console.error('Error:', err);
-    alert('Njuroom sa. Jongale biir.');
+    console.error('Full error:', err);
+    alert('Error: ' + (err.message || 'Njuroom sa.'));
   }
 };
 

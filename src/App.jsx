@@ -621,8 +621,7 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
-          <button onClick={() => setCurrentTab('create')} style={{ flex: 1, padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
+<div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>          <button onClick={() => setCurrentTab('create')} style={{ flex: 1, padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
           <button onClick={() => setCurrentTab('messages')} style={{ flex: 1, padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>💬 Messages</button>
         </div>
       </div>

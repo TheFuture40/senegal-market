@@ -38,48 +38,56 @@ export default function App() {
   const [userPhone, setUserPhone] = useState('');
   const [showMenu, setShowMenu] = useState(false);
 
-  const loadListings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('id, category, location, phone, price, photo_data, audio_data, created_at')
-        .limit(30)
-        .order('created_at', { ascending: false });
+  const loadListings = async (retryCount = 0) => {
+  try {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
+      .limit(30)
+      .order('created_at', { ascending: false });
 
-      if (error) {
-        setListings([]);
+    if (error) {
+      if (retryCount < 3) {
+        setTimeout(() => loadListings(retryCount + 1), 2000);
         return;
       }
-
-      if (!data) {
-        setListings([]);
-        return;
-      }
-
-      const formattedListings = data.map(listing => {
-        try {
-          return {
-            id: listing.id,
-            photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-              ? JSON.parse(listing.photo_data)
-              : [listing.photo_data],
-            category: listing.category,
-            location: listing.location,
-            phone: listing.phone,
-            price: listing.price,
-            audioBase64: listing.audio_data || '',
-            timestamp: new Date(listing.created_at).toLocaleString()
-          };
-        } catch (e) {
-          return null;
-        }
-      }).filter(l => l !== null);
-
-      setListings(formattedListings);
-    } catch (err) {
       setListings([]);
+      return;
     }
-  };
+
+    if (!data) {
+      setListings([]);
+      return;
+    }
+
+    const formattedListings = data.map(listing => {
+      try {
+        return {
+          id: listing.id,
+          photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+            ? JSON.parse(listing.photo_data)
+            : [listing.photo_data],
+          category: listing.category,
+          location: listing.location,
+          phone: listing.phone,
+          price: listing.price,
+          audioBase64: listing.audio_data || '',
+          timestamp: new Date(listing.created_at).toLocaleString()
+        };
+      } catch (e) {
+        return null;
+      }
+    }).filter(l => l !== null);
+
+    setListings(formattedListings);
+  } catch (err) {
+    if (retryCount < 3) {
+      setTimeout(() => loadListings(retryCount + 1), 2000);
+      return;
+    }
+    setListings([]);
+  }
+};
 
   const loadMessages = async () => {
     try {

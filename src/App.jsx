@@ -42,6 +42,10 @@ export default function App() {
 const [tempPhone, setTempPhone] = useState('');
 const [openListingMenu, setOpenListingMenu] = useState(null);
 const [editingListingId, setEditingListingId] = useState(null);
+const [phoneVerified, setPhoneVerified] = useState(false);
+const [verificationPhone, setVerificationPhone] = useState('');
+const [verificationCode, setVerificationCode] = useState('');
+const [showPhoneVerification, setShowPhoneVerification] = useState(false);
 
   const loadListings = async () => {
   try {
@@ -853,6 +857,85 @@ if (selectedListing) {
       </div>
     );
   }
+  // PHONE VERIFICATION PAGE
+if (showPhoneVerification) {
+  const isValidPhone = () => {
+    const phone = verificationPhone.replace(/\D/g, '');
+    // US: 10 digits starting with 1, or Senegal: 12 digits starting with 221
+    return (phone.startsWith('1') && phone.length === 11) || (phone.startsWith('221') && phone.length === 12);
+  };
+
+  return (
+    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <button onClick={() => setShowPhoneVerification(false)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+          <div style={{ fontSize: '14px', fontWeight: '600' }}>Verify Phone</div>
+          <div style={{ width: '28px' }}></div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ fontSize: '40px', marginBottom: '16px' }}>📱</div>
+          <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>Verify Your Phone</div>
+          <div style={{ fontSize: '12px', color: '#999', marginBottom: '24px', textAlign: 'center', maxWidth: '300px' }}>Enter your US or Senegal phone number to start selling</div>
+
+          <input 
+            type="tel"
+            value={verificationPhone}
+            onChange={(e) => setVerificationPhone(e.target.value)}
+            placeholder="+1 (555) 123-4567 or +221 77 123 45 67"
+            style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid ' + (verificationPhone && !isValidPhone() ? '#ff4444' : '#444'), borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
+          />
+          {verificationPhone && !isValidPhone() && <div style={{ fontSize: '11px', color: '#ff4444', marginBottom: '16px' }}>Please enter a valid US (+1) or Senegal (+221) number</div>}
+
+          <button 
+            onClick={() => {
+              if (!isValidPhone()) {
+                alert('Please enter a valid US or Senegal phone number');
+                return;
+              }
+              const code = Math.floor(100000 + Math.random() * 900000).toString();
+              setVerificationCode('');
+              alert('Verification code: ' + code + '\n\n(In production, this would be sent via SMS)');
+              // For testing: save code temporarily
+              window.testCode = code;
+            }}
+            disabled={!verificationPhone}
+            style={{ width: '100%', maxWidth: '300px', padding: '12px', background: verificationPhone ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: verificationPhone ? 'pointer' : 'not-allowed', fontSize: '13px', marginBottom: '16px' }}>
+            Send Code
+          </button>
+
+          <input 
+            type="text"
+            value={verificationCode}
+            onChange={(e) => setVerificationCode(e.target.value)}
+            placeholder="Enter 6-digit code"
+            style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
+          />
+
+          <button 
+            onClick={() => {
+              if (verificationCode === window.testCode) {
+                setUserPhone(verificationPhone);
+                setPhoneVerified(true);
+                setShowPhoneVerification(false);
+                setCurrentTab('create');
+                setVerificationPhone('');
+                setVerificationCode('');
+                alert('Phone verified!');
+              } else {
+                alert('Invalid code');
+              }
+            }}
+            disabled={!verificationCode}
+            style={{ width: '100%', maxWidth: '300px', padding: '12px', background: verificationCode ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: verificationCode ? 'pointer' : 'not-allowed', fontSize: '13px' }}>
+            Verify Code
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
   // HOME/BROWSE PAGE (DEFAULT)
 const uniqueLocations = getUniqueLocations();
@@ -941,8 +1024,13 @@ return (
 
       {/* Record Button - Full Width */}
       <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-        <button onClick={() => setCurrentTab('create')} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
-      </div>
+<button onClick={() => {
+  if (!phoneVerified) {
+    setShowPhoneVerification(true);
+  } else {
+    setCurrentTab('create');
+  }
+}} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>      </div>
     </div>
   </div>
 );

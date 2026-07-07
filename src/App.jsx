@@ -43,7 +43,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('listings')
         .select('id, category, location, phone, price, photo_data, created_at')
-        .limit(5);
+        .limit(10);
 
       if (error) {
         console.error('Error:', error);

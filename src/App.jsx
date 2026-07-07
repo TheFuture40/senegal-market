@@ -38,19 +38,15 @@ export default function App() {
   const [userPhone, setUserPhone] = useState('');
   const [showMenu, setShowMenu] = useState(false);
 
-  const loadListings = async (retryCount = 0) => {
+  const loadListings = async () => {
   try {
     const { data, error } = await supabase
       .from('listings')
-      .select('id, category, location, phone, price, photo_data, audio_data, created_at')
-      .limit(30)
-      .order('created_at', { ascending: false });
+      .select('id, category, location, phone, price, photo_data')
+      .limit(5);
 
     if (error) {
-      if (retryCount < 3) {
-        setTimeout(() => loadListings(retryCount + 1), 2000);
-        return;
-      }
+      console.error('Error:', error);
       setListings([]);
       return;
     }
@@ -60,35 +56,25 @@ export default function App() {
       return;
     }
 
-    const formattedListings = data.map(listing => {
-      try {
-        return {
-          id: listing.id,
-          photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-            ? JSON.parse(listing.photo_data)
-            : [listing.photo_data],
-          category: listing.category,
-          location: listing.location,
-          phone: listing.phone,
-          price: listing.price,
-          audioBase64: listing.audio_data || '',
-          timestamp: new Date(listing.created_at).toLocaleString()
-        };
-      } catch (e) {
-        return null;
-      }
-    }).filter(l => l !== null);
+    const formattedListings = data.map(listing => ({
+      id: listing.id,
+      photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
+        ? JSON.parse(listing.photo_data)
+        : [listing.photo_data],
+      category: listing.category,
+      location: listing.location,
+      phone: listing.phone,
+      price: listing.price,
+      audioBase64: '',
+      timestamp: 'Now'
+    })).filter(l => l !== null);
 
     setListings(formattedListings);
   } catch (err) {
-    if (retryCount < 3) {
-      setTimeout(() => loadListings(retryCount + 1), 2000);
-      return;
-    }
+    console.error('Error:', err);
     setListings([]);
   }
 };
-
   const loadMessages = async () => {
     try {
       const { data } = await supabase
@@ -504,78 +490,103 @@ export default function App() {
     );
   }
 
-  // DETAIL PAGE
-  if (selectedListing) {
-    const listing = selectedListing;
-    const currentPhoto = listing.photos[currentPhotoIndex];
-    
-    return (
-      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-            <button onClick={() => { setSelectedListing(null); setCurrentPhotoIndex(0); }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
-              {listing.phone === userPhone && (
-                <button onClick={() => { if (window.confirm('Delete this listing?')) { deleteListing(listing.id); } }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#ff4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px', color: 'white', fontWeight: 'bold' }}>🗑️</button>
-              )}
-            </div>
-          </div>
+  // AUDIO PLAYER COMPONENT (add before App return)
+const AudioPlayerSection = ({ listingId }) => {
+  const [audio, setAudio] = useState('');
+  
+  useEffect(() => {
+    const loadAudio = async () => {
+      try {
+        const { data } = await supabase
+          .from('listings')
+          .select('audio_data')
+          .eq('id', listingId)
+          .single();
+        if (data) setAudio(data.audio_data);
+      } catch (err) {
+        console.log('Error loading audio:', err);
+      }
+    };
+    loadAudio();
+  }, [listingId]);
 
-          <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px', flexShrink: 0, backgroundImage: currentPhoto ? `url(${currentPhoto})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            {!currentPhoto && (Object.entries(categoryIcons).find(([k]) => k === listing.category)?.[1] || '📦')}
-            {listing.photos.length > 1 && (
-              <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px' }}>
-                {listing.photos.map((_, idx) => (
-                  <div key={idx} style={{ width: '8px', height: '8px', borderRadius: '50%', background: idx === currentPhotoIndex ? '#0f6e56' : 'rgba(255,255,255,0.5)', cursor: 'pointer' }} onClick={() => setCurrentPhotoIndex(idx)}></div>
-                ))}
-              </div>
+  if (!audio) return null;
+  
+  return (
+    <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
+      <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
+      <audio controls style={{ width: '100%', height: '44px' }} preload="auto">
+        <source src={`data:audio/webm;base64,${audio}`} type="audio/webm" />
+        <source src={`data:audio/mp4;base64,${audio}`} type="audio/mp4" />
+      </audio>
+    </div>
+  );
+};
+
+// DETAIL PAGE
+if (selectedListing) {
+  const listing = selectedListing;
+  const currentPhoto = listing.photos[currentPhotoIndex];
+  
+  return (
+    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <button onClick={() => { setSelectedListing(null); setCurrentPhotoIndex(0); }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
+            {listing.phone === userPhone && (
+              <button onClick={() => { if (window.confirm('Delete this listing?')) { deleteListing(listing.id); } }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#ff4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px', color: 'white', fontWeight: 'bold' }}>🗑️</button>
             )}
-            {currentPhotoIndex > 0 && <button onClick={() => setCurrentPhotoIndex(currentPhotoIndex - 1)} style={{ position: 'absolute', left: '16px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: '24px', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
-            {currentPhotoIndex < listing.photos.length - 1 && <button onClick={() => setCurrentPhotoIndex(currentPhotoIndex + 1)} style={{ position: 'absolute', right: '16px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: '24px', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
-          </div>
-
-          <div style={{ padding: '20px 16px', flex: 1, overflowY: 'auto' }}>
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '22px', fontWeight: '600', marginBottom: '12px', color: 'white' }}>{listing.category}</div>
-              <div style={{ fontSize: '28px', fontWeight: '600', color: '#0f6e56', marginBottom: '12px' }}>{listing.price} F</div>
-              <div style={{ fontSize: '13px', color: '#999' }}>📍 {listing.location}</div>
-            </div>
-
-            <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
-
-            {listing.audioBase64 && (
-              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
-                <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-                <audio controls style={{ width: '100%', height: '44px' }} preload="auto">
-                  <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
-                  <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
-                </audio>
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
-                <div style={{ fontSize: '20px', marginBottom: '8px' }}>📍</div>
-                <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Location</div>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>{listing.location}</div>
-              </div>
-              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
-                <div style={{ fontSize: '20px', marginBottom: '8px' }}>🕐</div>
-                <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Listed</div>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>Now</div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
-            <a href={`tel:${listing.phone}`} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☎ Call</a>
-            <button onClick={() => { setSelectedConversation(listing); setCurrentTab('messages'); }} style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬 Message</button>
           </div>
         </div>
+
+        <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px', flexShrink: 0, backgroundImage: currentPhoto ? `url(${currentPhoto})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          {!currentPhoto && (Object.entries(categoryIcons).find(([k]) => k === listing.category)?.[1] || '📦')}
+          {listing.photos.length > 1 && (
+            <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px' }}>
+              {listing.photos.map((_, idx) => (
+                <div key={idx} style={{ width: '8px', height: '8px', borderRadius: '50%', background: idx === currentPhotoIndex ? '#0f6e56' : 'rgba(255,255,255,0.5)', cursor: 'pointer' }} onClick={() => setCurrentPhotoIndex(idx)}></div>
+              ))}
+            </div>
+          )}
+          {currentPhotoIndex > 0 && <button onClick={() => setCurrentPhotoIndex(currentPhotoIndex - 1)} style={{ position: 'absolute', left: '16px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: '24px', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
+          {currentPhotoIndex < listing.photos.length - 1 && <button onClick={() => setCurrentPhotoIndex(currentPhotoIndex + 1)} style={{ position: 'absolute', right: '16px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: '24px', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
+        </div>
+
+        <div style={{ padding: '20px 16px', flex: 1, overflowY: 'auto' }}>
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ fontSize: '22px', fontWeight: '600', marginBottom: '12px', color: 'white' }}>{listing.category}</div>
+            <div style={{ fontSize: '28px', fontWeight: '600', color: '#0f6e56', marginBottom: '12px' }}>{listing.price} F</div>
+            <div style={{ fontSize: '13px', color: '#999' }}>📍 {listing.location}</div>
+          </div>
+
+          <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
+
+          {listing.id && <AudioPlayerSection listingId={listing.id} />}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
+              <div style={{ fontSize: '20px', marginBottom: '8px' }}>📍</div>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Location</div>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>{listing.location}</div>
+            </div>
+            <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
+              <div style={{ fontSize: '20px', marginBottom: '8px' }}>🕐</div>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Listed</div>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>Now</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <a href={`tel:${listing.phone}`} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☎ Call</a>
+          <button onClick={() => { setSelectedConversation(listing); setCurrentTab('messages'); }} style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬 Message</button>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // CREATE PAGE
   if (currentTab === 'create') {

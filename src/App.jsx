@@ -293,25 +293,22 @@ const [editingListingId, setEditingListingId] = useState(null);
     }
   };
   const handleUpdateListing = async () => {
-  if (!audioBlob && !photos.length && !selectedCategory && !selectedLocation && !phone && !price) {
-    alert('No changes made');
+  if (!selectedCategory || !selectedLocation || !phone || !price || !editingListingId) {
+    alert('Please fill in all required fields');
     return;
   }
 
   try {
-    let audioBase64 = '';
-    if (audioBlob) {
-      audioBase64 = await blobToBase64(audioBlob);
-    }
-
     const updates = {
       category: selectedCategory,
       location: selectedLocation,
       phone: phone,
-      price: price
+      price: parseInt(price),
+      created_at: new Date().toISOString()  // ← Update timestamp to move to top
     };
 
     if (audioBlob) {
+      const audioBase64 = await blobToBase64(audioBlob);
       updates.audio_data = audioBase64;
     }
 
@@ -319,14 +316,11 @@ const [editingListingId, setEditingListingId] = useState(null);
       updates.photo_data = JSON.stringify(photos);
     }
 
-    const { error } = await supabase
+    await supabase
       .from('listings')
       .update(updates)
       .eq('id', editingListingId);
-
-    if (error) throw error;
-
-    alert('Listing updated!');
+    
     setEditingListingId(null);
     setAudioBlob(null);
     setPhotos([]);
@@ -334,14 +328,14 @@ const [editingListingId, setEditingListingId] = useState(null);
     setSelectedLocation(null);
     setPhone('');
     setPrice('');
-    setCurrentTab('browse');
     
     await loadListings();
+    alert('Listing updated!');
+    setCurrentTab('my-listings');
   } catch (err) {
-    alert('Error updating listing: ' + err.message);
+    alert('Error: ' + err.message);
   }
 };
-
   const deleteListing = async (id) => {
     const listing = listings.find(l => l.id === id);
     
@@ -538,9 +532,10 @@ if (currentTab === 'my-listings') {
   <div key={listing.id} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', position: 'relative' }}>
     <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'flex-start' }}>
       <div style={{ display: 'flex', gap: '12px', flex: 1, cursor: 'pointer' }} onClick={async () => { 
-        setCurrentPhotoIndex(0);
-        await loadListingPhotos(listing.id);
-      }}>
+  setCurrentPhotoIndex(0);
+  await loadListingPhotos(listing.id);
+  setCurrentTab('browse');
+}}>
         <div style={{ fontSize: '40px' }}>{categoryIcons[listing.category] || '📦'}</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '14px' }}>{listing.category}</div>

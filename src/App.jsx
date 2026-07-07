@@ -38,7 +38,8 @@ export default function App() {
   const [userPhone, setUserPhone] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [isLoadingListing, setIsLoadingListing] = useState(false);
-
+const [myListingsPhoneConfirmed, setMyListingsPhoneConfirmed] = useState(false);
+const [tempPhone, setTempPhone] = useState('');
   const loadListings = async () => {
   try {
     const { data, error } = await supabase
@@ -58,16 +59,16 @@ export default function App() {
     }
 
     const formattedListings = data.map(listing => ({
-      id: listing.id,
-      photos: [],  // Empty - load when user clicks
-      category: listing.category,
-      location: listing.location,
-      phone: listing.phone,
-      seller_phone: listing.phone,
-      price: listing.price,
-      audioBase64: '',
-      timestamp: 'Now'
-    })).filter(l => l !== null);
+  id: listing.id,
+  photos: [],
+  category: listing.category,
+  location: listing.location,
+  phone: listing.phone,
+  seller_phone: listing.seller_phone || listing.phone,  // ← Use actual seller_phone
+  price: listing.price,
+  audioBase64: '',
+  timestamp: 'Now'
+})).filter(l => l !== null);
 
     setListings(formattedListings);
   } catch (err) {
@@ -126,8 +127,7 @@ export default function App() {
   try {
     const { data, error } = await supabase
       .from('listings')
-      .select('id, category, location, phone, price, photo_data, audio_data')
-      .eq('id', listingId)
+.select('id, category, location, phone, price, photo_data, created_at, seller_phone')      .eq('id', listingId)
       .single();
 
     if (error) {
@@ -430,85 +430,95 @@ export default function App() {
     );
   }
 
-  // MY LISTINGS PAGE
-  if (currentTab === 'my-listings') {
-    if (!userPhone) {
-      return (
-        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-          <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-              <button onClick={() => setCurrentTab('browse')} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-              <div style={{ fontSize: '14px', fontWeight: '600' }}>My Listings</div>
-              <div style={{ width: '28px' }}></div>
-            </div>
+ // MY LISTINGS PAGE
+if (currentTab === 'my-listings') {
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📱</div>
-              <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Enter Your Phone</div>
-              <div style={{ fontSize: '12px', color: '#999', marginBottom: '20px', textAlign: 'center' }}>You need to enter your phone number to see your listings</div>
-              <input 
-                type="tel"
-                value={userPhone}
-                onChange={(e) => setUserPhone(e.target.value)}
-                placeholder="77 123 45 67"
-                style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
-              />
-              <button 
-                onClick={() => {}}
-                style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
-                Continue
-              </button>
-            </div>
-
-            <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-              <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    const myListings = listings.filter(l => l.seller_phone === userPhone);
-    
+  if (!myListingsPhoneConfirmed) {
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
         <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
           <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             <button onClick={() => setCurrentTab('browse')} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-            <div style={{ fontSize: '14px', fontWeight: '600' }}>My Listings ({myListings.length})</div>
+            <div style={{ fontSize: '14px', fontWeight: '600' }}>My Listings</div>
             <div style={{ width: '28px' }}></div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-            {myListings.length === 0 ? (
-              <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
-                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
-                <div>You haven't created any listings yet</div>
-              </div>
-            ) : (
-              myListings.map(listing => (
-                <div key={listing.id} onClick={() => { setSelectedListing(listing); setCurrentPhotoIndex(0); setCurrentTab('browse'); }} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <div style={{ fontSize: '40px' }}>{categoryIcons[listing.category] || '📦'}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '14px' }}>{listing.category}</div>
-                      <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>📍 {listing.location}</div>
-                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>📱</div>
+            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Enter Your Phone</div>
+            <div style={{ fontSize: '12px', color: '#999', marginBottom: '20px', textAlign: 'center' }}>Enter the phone number you used to create listings</div>
+            <input 
+              type="tel"
+              value={tempPhone}
+              onChange={(e) => setTempPhone(e.target.value)}
+              placeholder="77 123 45 67"
+              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
+            />
+            <button 
+              onClick={() => {
+                if (tempPhone.length > 5) {
+                  setUserPhone(tempPhone);
+                  setMyListingsPhoneConfirmed(true);
+                } else {
+                  alert('Please enter a valid phone number');
+                }
+              }}
+              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+              Confirm Phone
+            </button>
           </div>
 
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-            <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+            <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
           </div>
         </div>
       </div>
     );
   }
 
+  const myListings = listings.filter(l => l.seller_phone === userPhone);
+  
+  return (
+    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <button onClick={() => { setCurrentTab('browse'); setMyListingsPhoneConfirmed(false); }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+          <div style={{ fontSize: '14px', fontWeight: '600' }}>My Listings ({myListings.length})</div>
+          <div style={{ width: '28px' }}></div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          {myListings.length === 0 ? (
+            <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
+              <div>You haven't created any listings yet</div>
+            </div>
+          ) : (
+            myListings.map(listing => (
+              <div key={listing.id} onClick={async () => { 
+                setCurrentPhotoIndex(0);
+                await loadListingPhotos(listing.id);
+              }} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <div style={{ fontSize: '40px' }}>{categoryIcons[listing.category] || '📦'}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '14px' }}>{listing.category}</div>
+                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>📍 {listing.location}</div>
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
+          <button onClick={() => { setCurrentTab('browse'); setMyListingsPhoneConfirmed(false); }} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+        </div>
+      </div>
+    </div>
+  );
+}
   // MESSAGES PAGE
   if (currentTab === 'messages') {
     if (selectedConversation) {

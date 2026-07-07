@@ -39,44 +39,41 @@ export default function App() {
   const [showMenu, setShowMenu] = useState(false);
 
   const loadListings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('id, category, location, phone, price, photo_data, created_at')
-        .limit(13);
+  try {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('id, category, location, phone, price, created_at')
+      .limit(30);
 
-      if (error) {
-        console.error('Error:', error);
-        setListings([]);
-        return;
-      }
-
-      if (!data) {
-        setListings([]);
-        return;
-      }
-
-      const formattedListings = data.map(listing => ({
-        id: listing.id,
-        photos: typeof listing.photo_data === 'string' && listing.photo_data.startsWith('[')
-          ? JSON.parse(listing.photo_data)
-          : [listing.photo_data],
-        category: listing.category,
-        location: listing.location,
-        phone: listing.phone,
-        seller_phone: listing.phone,
-        price: listing.price,
-        audioBase64: '',
-        timestamp: 'Now'
-      })).filter(l => l !== null);
-
-      setListings(formattedListings);
-    } catch (err) {
-      console.error('Error:', err);
+    if (error) {
+      console.error('Error:', error);
       setListings([]);
+      return;
     }
-  };
 
+    if (!data) {
+      setListings([]);
+      return;
+    }
+
+    const formattedListings = data.map(listing => ({
+      id: listing.id,
+      photos: [],  // Empty - load when user clicks
+      category: listing.category,
+      location: listing.location,
+      phone: listing.phone,
+      seller_phone: listing.phone,
+      price: listing.price,
+      audioBase64: '',
+      timestamp: 'Now'
+    })).filter(l => l !== null);
+
+    setListings(formattedListings);
+  } catch (err) {
+    console.error('Error:', err);
+    setListings([]);
+  }
+};
   const loadMessages = async () => {
     try {
       const { data } = await supabase

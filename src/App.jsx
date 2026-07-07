@@ -43,7 +43,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('listings')
         .select('id, category, location, phone, price, photo_data, created_at')
-        .limit(10);
+        .limit(13);
 
       if (error) {
         console.error('Error:', error);
@@ -710,44 +710,57 @@ export default function App() {
           </div>
         )}
 
-        {/* Listings Grid */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-          {listings.length > 0 ? (
-            (() => {
-              const filteredListings = selectedLocationFilter === 'All' 
-                ? listings 
-                : listings.filter(l => l.location === selectedLocationFilter);
-              
-              const categories = [...new Set(filteredListings.map(l => l.category))];
-              const titles = { 'Yeet': '🐟 Fish', 'Taaxat': '🥬 Vegetables', 'Pampe': '🍌 Fruits', 'Jeep': '🍚 Rice', 'Fish': '🐟 Fish', 'Vegetables': '🥬 Vegetables', 'Fruits': '🍌 Fruits', 'Loujum': '🍲 Loujum' };
-              const colors = { 'Yeet': '#0f6e56', 'Taaxat': '#1D9E75', 'Pampe': '#D4A574', 'Jeep': '#B8860B', 'Fish': '#0f6e56', 'Vegetables': '#1D9E75', 'Fruits': '#D4A574', 'Loujum': '#B8860B' };
-              
-              return categories.map(cat => {
-                const items = filteredListings.filter(l => l.category === cat);
-                return (
-                  <div key={cat} style={{ marginBottom: '28px' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || cat}</div>
-                    <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px', scrollBehavior: 'smooth' }}>
-                      {items.map(listing => (
-                        <div key={listing.id} onClick={() => { setSelectedListing(listing); setCurrentPhotoIndex(0); }} style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                          <div style={{ height: '60px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photos && listing.photos.length > 0 && listing.photos[0] ? `url(${listing.photos[0]})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px', backgroundColor: '#333' }}>{!listing.photos || listing.photos.length === 0 || !listing.photos[0] ? (categoryIcons[listing.category] || '📦') : ''}</div>
-                          <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{listing.category}</div>
-                          <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              });
-            })()
-          ) : (
-            <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
-              <div>No listings yet</div>
-            </div>
-          )}
-        </div>
+       {/* Listings Grid */}
+<div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+  {listings.length > 0 ? (
+    (() => {
+      const filteredListings = selectedLocationFilter === 'All' 
+        ? listings 
+        : listings.filter(l => l.location === selectedLocationFilter);
+      
+      // Normalize category names for display
+      const categoryMap = {
+        'Fish': 'Yeet',
+        'Vegetables': 'Taaxat',
+        'Fruits': 'Pampe',
+        'Rice': 'Jeep',
+        'Loujum': 'Loujum'
+      };
 
+      const normalizedListings = filteredListings.map(l => ({
+        ...l,
+        displayCategory: categoryMap[l.category] || l.category
+      }));
+
+      const categories = [...new Set(normalizedListings.map(l => l.displayCategory))];
+      const titles = { 'Yeet': '🐟 Fish', 'Taaxat': '🥬 Vegetables', 'Pampe': '🍌 Fruits', 'Jeep': '🍚 Rice', 'Loujum': '🍲 Loujum' };
+      const colors = { 'Yeet': '#0f6e56', 'Taaxat': '#1D9E75', 'Pampe': '#D4A574', 'Jeep': '#B8860B', 'Loujum': '#B8860B' };
+      
+      return categories.map(cat => {
+        const items = normalizedListings.filter(l => l.displayCategory === cat);
+        return (
+          <div key={cat} style={{ marginBottom: '28px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || cat}</div>
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px', scrollBehavior: 'smooth' }}>
+              {items.map(listing => (
+                <div key={listing.id} onClick={() => { setSelectedListing(listing); setCurrentPhotoIndex(0); }} style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                  <div style={{ height: '60px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photos && listing.photos.length > 0 && listing.photos[0] ? `url(${listing.photos[0]})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px', backgroundColor: '#333' }}>{!listing.photos || listing.photos.length === 0 || !listing.photos[0] ? (categoryIcons[listing.category] || '📦') : ''}</div>
+                  <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{listing.category}</div>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      });
+    })()
+  ) : (
+    <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+      <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
+      <div>No listings yet</div>
+    </div>
+  )}
+</div>
         {/* Record Button - Full Width */}
         <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
           <button onClick={() => setCurrentTab('create')} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>

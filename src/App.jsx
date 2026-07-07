@@ -679,74 +679,79 @@ if (selectedListing) {
   }
 
   // HOME/BROWSE PAGE
-  const uniqueLocations = getUniqueLocations();
+const uniqueLocations = getUniqueLocations();
 
-  return (
-    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', color: 'white', position: 'relative' }}>
-        
-        {/* Header with Menu */}
-        <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Sunu Market</div>
-            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
-              <button onClick={() => setSelectedLocationFilter('All')} style={{ padding: '6px 12px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>All</button>
-              {uniqueLocations.map(loc => (
-                <button key={loc} onClick={() => setSelectedLocationFilter(loc)} style={{ padding: '6px 12px', background: selectedLocationFilter === loc ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === loc ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white' }}>📍 {loc}</button>
-              ))}
-            </div>
+return (
+  <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', color: 'white', position: 'relative' }}>
+      
+      {/* Header with Menu */}
+      <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Sunu Market</div>
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '4px', scrollBehavior: 'smooth' }}>
+            <button onClick={() => setSelectedLocationFilter('All')} style={{ padding: '6px 12px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white', flexShrink: 0 }}>All</button>
+            {uniqueLocations.map(loc => (
+              <button key={loc} onClick={() => setSelectedLocationFilter(loc)} style={{ padding: '6px 12px', background: selectedLocationFilter === loc ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === loc ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white', flexShrink: 0 }}>📍 {loc}</button>
+            ))}
           </div>
-          
-          <button onClick={() => setShowMenu(!showMenu)} style={{ background: 'white', border: 'none', borderRadius: '8px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', flexShrink: 0, marginLeft: '16px' }}>☰</button>
         </div>
+        
+        <button onClick={() => setShowMenu(!showMenu)} style={{ background: 'white', border: 'none', borderRadius: '8px', width: '40px', height: '40px', minWidth: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', marginLeft: '12px' }}>☰</button>
+      </div>
 
-        {/* Menu Panel */}
-        {showMenu && (
-          <div style={{ position: 'absolute', top: '90px', right: '16px', background: '#242424', border: '1px solid #333', borderRadius: '12px', zIndex: 100, minWidth: '200px', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }}>
-            <button onClick={() => { setCurrentTab('my-listings'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>📋 My Listings</button>
-            <button onClick={() => { setCurrentTab('messages'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>💬 Messages</button>
-            <button onClick={() => { setCurrentTab('settings'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', fontWeight: '500' }}>⚙️ Settings</button>
+      {/* Menu Panel */}
+      {showMenu && (
+        <div style={{ position: 'absolute', top: '90px', right: '16px', background: '#242424', border: '1px solid #333', borderRadius: '12px', zIndex: 100, minWidth: '200px', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }}>
+          <button onClick={() => { setCurrentTab('my-listings'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>📋 My Listings</button>
+          <button onClick={() => { setCurrentTab('messages'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>💬 Messages</button>
+          <button onClick={() => { setCurrentTab('settings'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', fontWeight: '500' }}>⚙️ Settings</button>
+        </div>
+      )}
+
+      {/* Listings Grid */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+        {listings.length > 0 ? (
+          (() => {
+            const filteredListings = selectedLocationFilter === 'All' 
+              ? listings 
+              : listings.filter(l => l.location === selectedLocationFilter);
+            
+            const categories = [...new Set(filteredListings.map(l => l.category))];
+            const titles = { 'Yeet': '🐟 Fish', 'Taaxat': '🥬 Vegetables', 'Pampe': '🍌 Fruits', 'Jeep': '🍚 Rice', 'Fish': '🐟 Fish', 'Vegetables': '🥬 Vegetables', 'Fruits': '🍌 Fruits', 'Loujum': '🍲 Loujum' };
+            const colors = { 'Yeet': '#0f6e56', 'Taaxat': '#1D9E75', 'Pampe': '#D4A574', 'Jeep': '#B8860B', 'Fish': '#0f6e56', 'Vegetables': '#1D9E75', 'Fruits': '#D4A574', 'Loujum': '#B8860B' };
+            
+            return categories.map(cat => {
+              const items = filteredListings.filter(l => l.category === cat);
+              return (
+                <div key={cat} style={{ marginBottom: '28px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || cat}</div>
+                  <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px', scrollBehavior: 'smooth' }}>
+                    {items.map(listing => (
+                      <div key={listing.id} onClick={() => { setSelectedListing(listing); setCurrentPhotoIndex(0); }} style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                        <div style={{ height: '60px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photos && listing.photos.length > 0 && listing.photos[0] ? `url(${listing.photos[0]})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px', backgroundColor: '#333' }}>{!listing.photos || listing.photos.length === 0 || !listing.photos[0] ? (categoryIcons[listing.category] || '📦') : ''}</div>
+                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{listing.category}</div>
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            });
+          })()
+        ) : (
+          <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
+            <div>No listings yet</div>
           </div>
         )}
+      </div>
 
-        {/* Listings Grid */}
-<div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-  {listings.length > 0 ? (
-    (() => {
-      const categories = [...new Set(listings.map(l => l.category))];
-      const titles = { 'Yeet': '🐟 Fish', 'Taaxat': '🥬 Vegetables', 'Pampe': '🍌 Fruits', 'Jeep': '🍚 Rice', 'Fish': '🐟 Fish', 'Vegetables': '🥬 Vegetables', 'Fruits': '🍌 Fruits', 'Loujum': '🍲 Loujum' };
-      const colors = { 'Yeet': '#0f6e56', 'Taaxat': '#1D9E75', 'Pampe': '#D4A574', 'Jeep': '#B8860B', 'Fish': '#0f6e56', 'Vegetables': '#1D9E75', 'Fruits': '#D4A574', 'Loujum': '#B8860B' };
-      
-      return categories.map(cat => {
-        const items = listings.filter(l => l.category === cat);
-        return (
-          <div key={cat} style={{ marginBottom: '28px' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || cat}</div>
-            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px' }}>
-              {items.map(listing => (
-                <div key={listing.id} onClick={() => { setSelectedListing(listing); setCurrentPhotoIndex(0); }} style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                  <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photos[0] ? `url(${listing.photos[0]})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px' }}>{!listing.photos[0] && categoryIcons[listing.category] || '📦'}</div>
-                  <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>{listing.category}</div>
-                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      });
-    })()
-  ) : (
-    <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
-      <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
-      <div>No listings yet</div>
-    </div>
-  )}
-</div>
-        {/* Record Button - Full Width */}
-        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-          <button onClick={() => setCurrentTab('create')} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
-        </div>
+      {/* Record Button - Full Width */}
+      <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
+        <button onClick={() => setCurrentTab('create')} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
       </div>
     </div>
-  );
+  </div>
+);
 }

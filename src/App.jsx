@@ -366,47 +366,7 @@ export default function App() {
   }
 
   // MY LISTINGS PAGE
-  if (currentTab === 'my-listings') {
-    const myListings = listings.filter(l => l.phone === userPhone);
-    
-    return (
-      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-            <button onClick={() => setCurrentTab('browse')} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-            <div style={{ fontSize: '14px', fontWeight: '600' }}>My Listings</div>
-            <div style={{ width: '28px' }}></div>
-          </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-            {myListings.length === 0 ? (
-              <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
-                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
-                <div>No listings yet</div>
-              </div>
-            ) : (
-              myListings.map(listing => (
-                <div key={listing.id} onClick={() => { setSelectedListing(listing); setCurrentPhotoIndex(0); setCurrentTab('browse'); }} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <div style={{ fontSize: '40px' }}>{categoryIcons[listing.category]}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '14px' }}>{listing.category}</div>
-                      <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>📍 {listing.location}</div>
-                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-            <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // MESSAGING
   if (currentTab === 'messages') {

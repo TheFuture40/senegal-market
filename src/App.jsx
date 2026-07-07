@@ -331,6 +331,9 @@ const [editingListingId, setEditingListingId] = useState(null);
     
     await loadListings();
     alert('Listing updated!');
+    setTimeout(() => {
+  setCurrentTab('my-listings');
+}, 500);
     setCurrentTab('my-listings');
   } catch (err) {
     alert('Error: ' + err.message);

@@ -53,7 +53,16 @@ export default function App() {
 
   const formatPhoneWithPrefix = (phone) => {
     if (!phone) return phone;
-    const cleaned = phone.replace(/\D/g, '');
+    let cleaned = phone.replace(/\D/g, '');
+
+    // Senegal numbers are commonly typed with a local leading 0
+    // (e.g. "0771234567"). Without stripping it, a 10-digit Senegal
+    // number collides with the 10-digit US case below and gets
+    // formatted as +1... instead of +221..., producing a different
+    // "canonical" phone string for what is really the same number.
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+      cleaned = cleaned.slice(1);
+    }
 
     if (cleaned.startsWith('1') && cleaned.length === 11) {
       return '+' + cleaned;
@@ -876,8 +885,8 @@ if (currentTab === 'messages') {
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {messages.filter(m =>
               m.listing_id === selectedConversation.id && (
-                (m.sender_phone === userPhone && m.receiver_phone === selectedConversation.phone) ||
-                (m.sender_phone === selectedConversation.phone && m.receiver_phone === userPhone)
+                (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(selectedConversation.phone)) ||
+                (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(selectedConversation.phone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone))
               )
             ).map(msg => (
               <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
@@ -916,7 +925,7 @@ if (currentTab === 'messages') {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
           {listings.map(listing => {
-            const hasMessages = messages.some(m => m.listing_id === listing.id && (m.sender_phone === userPhone || m.receiver_phone === userPhone));
+            const hasMessages = messages.some(m => m.listing_id === listing.id && (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) || formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone)));
             if (!hasMessages) return null;
 
             const listingMessages = messages.filter(m => m.listing_id === listing.id).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -947,7 +956,7 @@ if (currentTab === 'messages') {
                       {isAudio
                         ? '🎤 Voice message'
                         : latestMessage?.message_text
-                          ? (latestMessage.sender_phone === userPhone ? 'You: ' : 'Seller: ') + latestMessage.message_text
+                          ? (formatPhoneWithPrefix(latestMessage.sender_phone) === formatPhoneWithPrefix(userPhone) ? 'You: ' : 'Seller: ') + latestMessage.message_text
                           : ''}
                     </div>
                   </div>
@@ -982,7 +991,7 @@ if (currentTab === 'messages') {
             );
           })}
 
-          {listings.filter(l => messages.some(m => m.listing_id === l.id && (m.sender_phone === userPhone || m.receiver_phone === userPhone))).length === 0 && (
+          {listings.filter(l => messages.some(m => m.listing_id === l.id && (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) || formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone)))).length === 0 && (
             <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
               <div style={{ fontSize: '32px', marginBottom: '12px' }}>💬</div>
               <div>No messages yet</div>
@@ -1232,7 +1241,7 @@ if (currentTab === 'messages') {
                 const items = normalizedListings.filter(l => l.displayCategory === cat);
                 return (
                   <div key={cat} style={{ marginBottom: '28px' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || cat}</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || `${categoryIcons[cat] || '📦'} ${cat}`}</div>
                     <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px', scrollBehavior: 'smooth' }}>
                       {items.map(listing => (
                         <div key={listing.id} onClick={async () => {

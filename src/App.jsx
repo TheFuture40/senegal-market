@@ -16,6 +16,7 @@ export default function App() {
   const audioChunksRef = useRef([]);
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const inlineAudioRef = useRef(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
@@ -48,11 +49,12 @@ export default function App() {
   const [openListingMenu, setOpenListingMenu] = useState(null);
   const [editingListingId, setEditingListingId] = useState(null);
   const [cameFromMyListings, setCameFromMyListings] = useState(false);
+  const [playingListingId, setPlayingListingId] = useState(null);
 
   const formatPhoneWithPrefix = (phone) => {
     if (!phone) return phone;
     const cleaned = phone.replace(/\D/g, '');
-    
+
     if (cleaned.startsWith('1') && cleaned.length === 11) {
       return '+' + cleaned;
     } else if (cleaned.startsWith('221') && cleaned.length === 12) {
@@ -65,11 +67,26 @@ export default function App() {
     return phone;
   };
 
+  // Parses the photo_data column into a normalized array of photo strings.
+  // Handles: null/empty, a JSON-array string, or a single raw data-URL string.
+  const parsePhotoData = (photoData) => {
+    if (!photoData) return [];
+    try {
+      if (typeof photoData === 'string' && photoData.startsWith('[')) {
+        return JSON.parse(photoData);
+      }
+      return [photoData];
+    } catch (e) {
+      return [];
+    }
+  };
+
   const loadListings = async () => {
     try {
       const { data, error } = await supabase
         .from('listings')
         .select('id, category, location, phone, price, photo_data, created_at, seller_phone')
+        .order('created_at', { ascending: false })
         .limit(30);
 
       if (error) {
@@ -84,7 +101,7 @@ export default function App() {
 
       const formattedListings = data.map(listing => ({
         id: listing.id,
-        photos: [],
+        photos: parsePhotoData(listing.photo_data),
         category: listing.category,
         location: listing.location,
         phone: listing.phone,
@@ -127,9 +144,7 @@ export default function App() {
         return;
       }
 
-      const photos = data.photo_data ? (typeof data.photo_data === 'string' && data.photo_data.startsWith('[')
-        ? JSON.parse(data.photo_data)
-        : [data.photo_data]) : [];
+      const photos = parsePhotoData(data.photo_data);
 
       setSelectedListing({
         id: data.id,
@@ -155,14 +170,14 @@ export default function App() {
   const startRecording = async () => {
     audioChunksRef.current = [];
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
-      
+
       let mimeType = 'audio/webm';
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/mp4';
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/wav';
-      
+
       const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mediaRecorderRef.current = mediaRecorder;
 
@@ -193,14 +208,14 @@ export default function App() {
   const startRecordingMessage = async () => {
     audioChunksRef.current = [];
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
-      
+
       let mimeType = 'audio/webm';
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/mp4';
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'audio/wav';
-      
+
       const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mediaRecorderRef.current = mediaRecorder;
 
@@ -263,7 +278,7 @@ export default function App() {
     try {
       alert('Saving listing...');
       const audioBase64 = await blobToBase64(audioBlob);
-      
+
       const { error } = await supabase.from('listings').insert([{
         category: selectedCategory,
         location: selectedLocation,
@@ -283,9 +298,9 @@ export default function App() {
       setPhone('');
       setPrice('');
       setCurrentTab('browse');
-      
+
       alert('Baaxal liggéey naa!');
-      
+
       await new Promise(resolve => setTimeout(resolve, 1000));
       loadListings();
     } catch (err) {
@@ -321,7 +336,7 @@ export default function App() {
         .from('listings')
         .update(updates)
         .eq('id', editingListingId);
-      
+
       setEditingListingId(null);
       setAudioBlob(null);
       setPhotos([]);
@@ -329,7 +344,7 @@ export default function App() {
       setSelectedLocation(null);
       setPhone('');
       setPrice('');
-      
+
       await loadListings();
       alert('Listing updated!');
       setCurrentTab('my-listings');
@@ -340,7 +355,7 @@ export default function App() {
 
   const deleteListing = async (id) => {
     const listing = listings.find(l => l.id === id);
-    
+
     if (!userPhone || formatPhoneWithPrefix(listing.seller_phone || listing.phone) !== formatPhoneWithPrefix(userPhone)) {
       alert('Only the seller can delete this listing');
       return;
@@ -402,6 +417,53 @@ export default function App() {
     }
   };
 
+  // Plays/pauses a message's voice note inline, right from the messages list,
+  // without needing to open the conversation first.
+  const toggleInlineAudio = (listingId, audioBase64) => {
+    if (!audioBase64) return;
+
+    const current = inlineAudioRef.current;
+
+    // Tapping the one that's already playing pauses it.
+    if (playingListingId === listingId && current) {
+      current.pause();
+      setPlayingListingId(null);
+      return;
+    }
+
+    // Switching tracks (or starting fresh): stop whatever was playing.
+    if (current) {
+      current.pause();
+      current.currentTime = 0;
+    }
+
+    // Use the same dual-<source> fallback the detail/message audio players use
+    // (webm first, mp4 second) instead of guessing a single mime type - a
+    // wrong guess makes some browsers refuse to decode the data URI at all.
+    const audio = document.createElement('audio');
+    const webmSource = document.createElement('source');
+    webmSource.src = `data:audio/webm;base64,${audioBase64}`;
+    webmSource.type = 'audio/webm';
+    const mp4Source = document.createElement('source');
+    mp4Source.src = `data:audio/mp4;base64,${audioBase64}`;
+    mp4Source.type = 'audio/mp4';
+    audio.appendChild(webmSource);
+    audio.appendChild(mp4Source);
+
+    inlineAudioRef.current = audio;
+
+    audio.onended = () => setPlayingListingId(null);
+    audio.onerror = () => setPlayingListingId(null);
+
+    audio.load();
+    audio.play()
+      .then(() => setPlayingListingId(listingId))
+      .catch((err) => {
+        console.error('Inline audio playback failed:', err);
+        setPlayingListingId(null);
+      });
+  };
+
   const categoryIcons = {
     'Yeet': '🐟', 'Jeep': '🍚', 'Taaxat': '🥬', 'Pampe': '🍌',
     'Jaxas': '🥔', 'Yaañu': '🥚', 'Jujuben': '🌰', 'Bii': '📦',
@@ -447,7 +509,7 @@ export default function App() {
             <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>Verify Your Phone</div>
             <div style={{ fontSize: '12px', color: '#999', marginBottom: '24px', textAlign: 'center', maxWidth: '300px' }}>Enter your US or Senegal phone number to start selling</div>
 
-            <input 
+            <input
               type="tel"
               value={verificationPhone}
               onChange={(e) => setVerificationPhone(e.target.value)}
@@ -456,7 +518,7 @@ export default function App() {
             />
             {verificationPhone && !isValidPhone() && <div style={{ fontSize: '11px', color: '#ff4444', marginBottom: '16px' }}>Please enter a valid US (+1) or Senegal (+221) number</div>}
 
-            <button 
+            <button
               onClick={() => {
                 if (!isValidPhone()) {
                   alert('Please enter a valid US or Senegal phone number');
@@ -472,7 +534,7 @@ export default function App() {
               Send Code
             </button>
 
-            <input 
+            <input
               type="text"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}
@@ -480,7 +542,7 @@ export default function App() {
               style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
             />
 
-            <button 
+            <button
               onClick={() => {
                 if (verificationCode === window.testCode) {
                   setUserPhone(formatPhoneWithPrefix(verificationPhone));
@@ -566,7 +628,7 @@ export default function App() {
               <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>Verify Your Phone</div>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '24px', textAlign: 'center', maxWidth: '300px' }}>Enter your US or Senegal phone number to view your listings</div>
 
-              <input 
+              <input
                 type="tel"
                 value={tempPhone}
                 onChange={(e) => setTempPhone(e.target.value)}
@@ -575,7 +637,7 @@ export default function App() {
               />
               {tempPhone && !isValidPhone() && <div style={{ fontSize: '11px', color: '#ff4444', marginBottom: '16px' }}>Please enter a valid US (+1) or Senegal (+221) number</div>}
 
-              <button 
+              <button
                 onClick={() => {
                   if (!isValidPhone()) {
                     alert('Please enter a valid US or Senegal phone number');
@@ -591,7 +653,7 @@ export default function App() {
                 Send Code
               </button>
 
-              <input 
+              <input
                 type="text"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
@@ -599,7 +661,7 @@ export default function App() {
                 style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
               />
 
-              <button 
+              <button
                 onClick={() => {
                   if (verificationCode === window.testCode) {
                     setUserPhone(formatPhoneWithPrefix(tempPhone));
@@ -627,7 +689,7 @@ export default function App() {
     }
 
     const myListings = listings.filter(l => formatPhoneWithPrefix(l.seller_phone || l.phone) === userPhone);
-    
+
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
         <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
@@ -645,7 +707,7 @@ export default function App() {
               </div>
             ) : (
               myListings.map(listing => (
-                <div key={listing.id} onClick={async () => { 
+                <div key={listing.id} onClick={async () => {
                   setCameFromMyListings(true);
                   setCurrentPhotoIndex(0);
                   await loadListingPhotos(listing.id);
@@ -664,7 +726,7 @@ export default function App() {
                       <button onClick={(e) => { e.stopPropagation(); setOpenListingMenu(openListingMenu === listing.id ? null : listing.id); }} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer' }}>⋮</button>
                       {openListingMenu === listing.id && (
                         <div style={{ position: 'absolute', top: '30px', right: '0', background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', zIndex: 50, minWidth: '150px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                          <button onClick={(e) => { 
+                          <button onClick={(e) => {
                             e.stopPropagation();
                             setCurrentPhotoIndex(0);
                             try {
@@ -675,9 +737,7 @@ export default function App() {
                                 .single()
                                 .then(({ data }) => {
                                   if (data) {
-                                    const photos = data.photo_data ? (typeof data.photo_data === 'string' && data.photo_data.startsWith('[')
-                                      ? JSON.parse(data.photo_data)
-                                      : [data.photo_data]) : [];
+                                    const photos = parsePhotoData(data.photo_data);
 
                                     setPhotos(photos);
                                     setAudioBlob(null);
@@ -695,9 +755,9 @@ export default function App() {
                             }
                             setOpenListingMenu(null);
                           }} style={{ width: '100%', padding: '12px 16px', background: 'transparent', border: 'none', color: 'white', fontSize: '13px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>✏️ Edit</button>
-                          <button onClick={(e) => { 
+                          <button onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm('Delete this listing?')) { 
+                            if (window.confirm('Delete this listing?')) {
                               deleteListing(listing.id);
                             }
                             setOpenListingMenu(null);
@@ -732,7 +792,7 @@ if (currentTab === 'messages') {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {messages.filter(m => 
+            {messages.filter(m =>
               m.listing_id === selectedConversation.id && (
                 (m.sender_phone === userPhone && m.receiver_phone === selectedConversation.phone) ||
                 (m.sender_phone === selectedConversation.phone && m.receiver_phone === userPhone)
@@ -776,24 +836,24 @@ if (currentTab === 'messages') {
           {listings.map(listing => {
             const hasMessages = messages.some(m => m.listing_id === listing.id);
             if (!hasMessages) return null;
-            
+
             const listingMessages = messages.filter(m => m.listing_id === listing.id).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             const latestMessage = listingMessages[0];
             const isAudio = latestMessage?.audio_data;
 
             return (
-              <div 
+              <div
                 key={listing.id}
-                style={{ 
-                  padding: '12px 16px', 
-                  borderBottom: '0.5px solid #333', 
-                  cursor: 'pointer', 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
+                style={{
+                  padding: '12px 16px',
+                  borderBottom: '0.5px solid #333',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center'
                 }}
               >
-                <div 
+                <div
                   style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flex: 1, minWidth: 0 }}
                   onClick={() => setSelectedConversation(listing)}
                 >
@@ -802,9 +862,9 @@ if (currentTab === 'messages') {
                     <div style={{ fontWeight: '600', fontSize: '13px', color: 'white' }}>{listing.category}</div>
                     <div style={{ fontSize: '10px', color: '#999', marginBottom: '4px' }}>{listing.price} F • {listing.location}</div>
                     <div style={{ fontSize: '10px', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {isAudio 
-                        ? '🎤 Voice message' 
-                        : latestMessage?.message_text 
+                      {isAudio
+                        ? '🎤 Voice message'
+                        : latestMessage?.message_text
                           ? (latestMessage.sender_phone === userPhone ? 'You: ' : 'Seller: ') + latestMessage.message_text
                           : ''}
                     </div>
@@ -812,27 +872,28 @@ if (currentTab === 'messages') {
                 </div>
 
                 {isAudio && (
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      toggleInlineAudio(listing.id, latestMessage.audio_data);
                     }}
-                    style={{ 
-                      background: '#0f6e56', 
-                      color: 'white', 
-                      border: 'none', 
-                      borderRadius: '50%', 
-                      width: '28px', 
-                      height: '28px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      cursor: 'pointer', 
-                      fontSize: '12px', 
+                    style={{
+                      background: '#0f6e56',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '28px',
+                      height: '28px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '12px',
                       flexShrink: 0,
                       marginLeft: '8px'
                     }}
                   >
-                    ▶
+                    {playingListingId === listing.id ? '⏸' : '▶'}
                   </button>
                 )}
               </div>
@@ -859,13 +920,13 @@ if (currentTab === 'messages') {
   if (selectedListing) {
     const listing = selectedListing;
     const currentPhoto = listing.photos && listing.photos.length > currentPhotoIndex ? listing.photos[currentPhotoIndex] : null;
-    
+
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
         <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
           <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-            <button onClick={() => { 
-              setSelectedListing(null); 
+            <button onClick={() => {
+              setSelectedListing(null);
               setCurrentPhotoIndex(0);
               if (cameFromMyListings) {
                 setCurrentTab('my-listings');
@@ -1035,7 +1096,7 @@ if (currentTab === 'messages') {
   return (
     <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', color: 'white', position: 'relative' }}>
-        
+
         {/* Header with Menu */}
         <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1047,7 +1108,7 @@ if (currentTab === 'messages') {
               ))}
             </div>
           </div>
-          
+
           <button onClick={() => setShowMenu(!showMenu)} style={{ background: 'white', border: 'none', borderRadius: '8px', width: '40px', height: '40px', minWidth: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', marginLeft: '12px' }}>☰</button>
         </div>
 
@@ -1064,10 +1125,10 @@ if (currentTab === 'messages') {
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
           {listings.length > 0 ? (
             (() => {
-              const filteredListings = selectedLocationFilter === 'All' 
-                ? listings 
+              const filteredListings = selectedLocationFilter === 'All'
+                ? listings
                 : listings.filter(l => l.location === selectedLocationFilter);
-              
+
               const categoryMap = {
                 'Fish': 'Yeet',
                 'Vegetables': 'Taaxat',
@@ -1084,7 +1145,7 @@ if (currentTab === 'messages') {
               const categories = [...new Set(normalizedListings.map(l => l.displayCategory))];
               const titles = { 'Yeet': '🐟 Fish', 'Taaxat': '🥬 Vegetables', 'Pampe': '🍌 Fruits', 'Jeep': '🍚 Rice', 'Loujum': '🍲 Loujum' };
               const colors = { 'Yeet': '#0f6e56', 'Taaxat': '#1D9E75', 'Pampe': '#D4A574', 'Jeep': '#B8860B', 'Loujum': '#B8860B' };
-              
+
               return categories.map(cat => {
                 const items = normalizedListings.filter(l => l.displayCategory === cat);
                 return (
@@ -1092,7 +1153,7 @@ if (currentTab === 'messages') {
                     <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || cat}</div>
                     <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px', scrollBehavior: 'smooth' }}>
                       {items.map(listing => (
-                        <div key={listing.id} onClick={async () => { 
+                        <div key={listing.id} onClick={async () => {
                           setCameFromMyListings(false);
                           setCurrentPhotoIndex(0);
                           await loadListingPhotos(listing.id);

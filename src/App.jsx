@@ -11,6 +11,10 @@ const LOCATIONS = [
   'Sacré-Cœur', 'Parcelles', 'Liberté', 'Mermoz', 'Ngor', 'Yoff', 'Ouakam', 'Bii'
 ];
 
+// Verified phone persists here so closing/reopening the app doesn't force
+// the user to verify again - only an explicit logout (Settings) clears it.
+const USER_PHONE_STORAGE_KEY = 'sunuMarketUserPhone';
+
 export default function App() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -38,9 +42,21 @@ export default function App() {
   const [messageAudioBlob, setMessageAudioBlob] = useState(null);
   const [messageText, setMessageText] = useState('');
   const [isRecordingMessage, setIsRecordingMessage] = useState(false);
-  const [userPhone, setUserPhone] = useState('');
+  const [userPhone, setUserPhone] = useState(() => {
+    try {
+      return localStorage.getItem(USER_PHONE_STORAGE_KEY) || '';
+    } catch (e) {
+      return '';
+    }
+  });
   const [showMenu, setShowMenu] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(() => {
+    try {
+      return !!localStorage.getItem(USER_PHONE_STORAGE_KEY);
+    } catch (e) {
+      return false;
+    }
+  });
   const [verificationPhone, setVerificationPhone] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
@@ -78,6 +94,34 @@ export default function App() {
       return '+221' + cleaned;
     }
     return phone;
+  };
+
+  // Marks the given (already-formatted) phone as verified and remembers it
+  // in localStorage so the user stays logged in across app restarts.
+  const persistLogin = (formattedPhone) => {
+    setUserPhone(formattedPhone);
+    setPhoneVerified(true);
+    setMyListingsPhoneConfirmed(true);
+    try {
+      localStorage.setItem(USER_PHONE_STORAGE_KEY, formattedPhone);
+    } catch (e) {
+      // localStorage unavailable (e.g. private browsing) - login still
+      // works for this session, it just won't survive a restart.
+    }
+  };
+
+  // Explicit sign-out, reachable from Settings. Clears both in-memory state
+  // and the persisted phone, so the next app open requires verifying again.
+  const logout = () => {
+    setUserPhone('');
+    setPhoneVerified(false);
+    setMyListingsPhoneConfirmed(false);
+    try {
+      localStorage.removeItem(USER_PHONE_STORAGE_KEY);
+    } catch (e) {
+      // ignore
+    }
+    setCurrentTab('browse');
   };
 
   // Parses the photo_data column into a normalized array of photo strings.
@@ -668,9 +712,7 @@ export default function App() {
             <button
               onClick={() => {
                 if (verificationCode === window.testCode) {
-                  setUserPhone(formatPhoneWithPrefix(verificationPhone));
-                  setPhoneVerified(true);
-                  setMyListingsPhoneConfirmed(true);
+                  persistLogin(formatPhoneWithPrefix(verificationPhone));
                   setShowPhoneVerification(false);
                   setCurrentTab('create');
                   setVerificationPhone('');
@@ -711,12 +753,25 @@ export default function App() {
               <div style={{ fontSize: '13px', color: 'white', fontWeight: '600' }}>{userPhone || 'Not verified'}</div>
             </div>
 
-            <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', border: '1px solid #333' }}>
+            <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', border: '1px solid #333', marginBottom: phoneVerified ? '16px' : '0' }}>
               <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: 'white' }}>About Sunu Market</div>
               <div style={{ fontSize: '13px', color: '#999', lineHeight: '1.6' }}>
                 Sunu Market is a voice-first marketplace for Senegalese traders. List your products, add photos, and connect with buyers directly.
               </div>
             </div>
+
+            {phoneVerified && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Log out? You\'ll need to verify your phone again to sell or message.')) {
+                    logout();
+                  }
+                }}
+                style={{ width: '100%', padding: '14px', background: '#242424', border: '1px solid #ff4444', borderRadius: '12px', color: '#ff4444', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}
+              >
+                Log out
+              </button>
+            )}
           </div>
 
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
@@ -787,9 +842,7 @@ export default function App() {
               <button
                 onClick={() => {
                   if (verificationCode === window.testCode) {
-                    setUserPhone(formatPhoneWithPrefix(tempPhone));
-                    setPhoneVerified(true);
-                    setMyListingsPhoneConfirmed(true);
+                    persistLogin(formatPhoneWithPrefix(tempPhone));
                     setTempPhone('');
                     setVerificationCode('');
                     alert('Phone verified!');
@@ -962,9 +1015,7 @@ if (currentTab === 'messages') {
             <button
               onClick={() => {
                 if (verificationCode === window.testCode) {
-                  setUserPhone(formatPhoneWithPrefix(tempPhone));
-                  setPhoneVerified(true);
-                  setMyListingsPhoneConfirmed(true);
+                  persistLogin(formatPhoneWithPrefix(tempPhone));
                   setTempPhone('');
                   setVerificationCode('');
                   alert('Phone verified!');

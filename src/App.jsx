@@ -16,6 +16,7 @@ export default function App() {
   const audioChunksRef = useRef([]);
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
+
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [photos, setPhotos] = useState([]);
@@ -37,66 +38,68 @@ export default function App() {
   const [isRecordingMessage, setIsRecordingMessage] = useState(false);
   const [userPhone, setUserPhone] = useState('');
   const [showMenu, setShowMenu] = useState(false);
-  const [isLoadingListing, setIsLoadingListing] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [verificationPhone, setVerificationPhone] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [myListingsPhoneConfirmed, setMyListingsPhoneConfirmed] = useState(false);
-const [tempPhone, setTempPhone] = useState('');
-const [openListingMenu, setOpenListingMenu] = useState(null);
-const [editingListingId, setEditingListingId] = useState(null);
-const [phoneVerified, setPhoneVerified] = useState(false);
-const [verificationPhone, setVerificationPhone] = useState('');
-const [verificationCode, setVerificationCode] = useState('');
-const [showPhoneVerification, setShowPhoneVerification] = useState(false);
-const formatPhoneWithPrefix = (phone) => {
-  if (!phone) return phone;
-  const cleaned = phone.replace(/\D/g, '');
-  
-  if (cleaned.startsWith('1') && cleaned.length === 11) {
-    return '+' + cleaned;
-  } else if (cleaned.startsWith('221') && cleaned.length === 12) {
-    return '+' + cleaned;
-  } else if (cleaned.length === 10) {
-    return '+1' + cleaned;
-  } else if (cleaned.length === 9) {
-    return '+221' + cleaned;
-  }
-  return phone;
-};
+  const [tempPhone, setTempPhone] = useState('');
+  const [isLoadingListing, setIsLoadingListing] = useState(false);
+  const [openListingMenu, setOpenListingMenu] = useState(null);
+  const [editingListingId, setEditingListingId] = useState(null);
+  const [cameFromMyListings, setCameFromMyListings] = useState(false);
+
+  const formatPhoneWithPrefix = (phone) => {
+    if (!phone) return phone;
+    const cleaned = phone.replace(/\D/g, '');
+    
+    if (cleaned.startsWith('1') && cleaned.length === 11) {
+      return '+' + cleaned;
+    } else if (cleaned.startsWith('221') && cleaned.length === 12) {
+      return '+' + cleaned;
+    } else if (cleaned.length === 10) {
+      return '+1' + cleaned;
+    } else if (cleaned.length === 9) {
+      return '+221' + cleaned;
+    }
+    return phone;
+  };
+
   const loadListings = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('id, category, location, phone, price, created_at')
-      .limit(30);
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('id, category, location, phone, price, photo_data, created_at, seller_phone')
+        .limit(30);
 
-    if (error) {
-      console.error('Error:', error);
+      if (error) {
+        setListings([]);
+        return;
+      }
+
+      if (!data) {
+        setListings([]);
+        return;
+      }
+
+      const formattedListings = data.map(listing => ({
+        id: listing.id,
+        photos: [],
+        category: listing.category,
+        location: listing.location,
+        phone: listing.phone,
+        seller_phone: listing.seller_phone || listing.phone,
+        price: listing.price,
+        audioBase64: '',
+        timestamp: 'Now'
+      })).filter(l => l !== null);
+
+      setListings(formattedListings);
+    } catch (err) {
       setListings([]);
-      return;
     }
+  };
 
-    if (!data) {
-      setListings([]);
-      return;
-    }
-
-    const formattedListings = data.map(listing => ({
-      id: listing.id,
-      photos: [],  // Empty - load when user clicks
-      category: listing.category,
-      location: listing.location,
-      phone: listing.phone,
-      seller_phone: listing.phone,
-      price: listing.price,
-      audioBase64: '',
-      timestamp: 'Now'
-    })).filter(l => l !== null);
-
-    setListings(formattedListings);
-  } catch (err) {
-    console.error('Error:', err);
-    setListings([]);
-  }
-};
   const loadMessages = async () => {
     try {
       const { data } = await supabase
@@ -108,62 +111,41 @@ const formatPhoneWithPrefix = (phone) => {
     } catch (err) {
       setMessages([]);
     }
-    const loadListingPhotos = async (listingId) => {
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('photo_data, audio_data')
-      .eq('id', listingId)
-      .single();
-
-    if (error || !data) return;
-
-    const photos = data.photo_data ? (typeof data.photo_data === 'string' && data.photo_data.startsWith('[')
-      ? JSON.parse(data.photo_data)
-      : [data.photo_data]) : [];
-
-    setSelectedListing(prev => prev ? { 
-      ...prev, 
-      photos: photos,
-      audioBase64: data.audio_data || ''
-    } : null);
-  } catch (err) {
-    console.error('Error loading photos and audio:', err);
-  }
-};
   };
+
   const loadListingPhotos = async (listingId) => {
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('id, category, location, phone, price, photo_data, audio_data')
-      .eq('id', listingId)
-      .single();
+    setIsLoadingListing(true);
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('id, category, location, phone, price, photo_data, audio_data, seller_phone')
+        .eq('id', listingId)
+        .single();
 
-    if (error) {
-      console.error('Error loading listing:', error);
-      return;
+      if (error || !data) {
+        setIsLoadingListing(false);
+        return;
+      }
+
+      const photos = data.photo_data ? (typeof data.photo_data === 'string' && data.photo_data.startsWith('[')
+        ? JSON.parse(data.photo_data)
+        : [data.photo_data]) : [];
+
+      setSelectedListing({
+        id: data.id,
+        category: data.category,
+        location: data.location,
+        phone: data.phone,
+        seller_phone: data.seller_phone,
+        price: data.price,
+        photos: photos,
+        audioBase64: data.audio_data || ''
+      });
+      setIsLoadingListing(false);
+    } catch (err) {
+      setIsLoadingListing(false);
     }
-
-    const photos = data.photo_data ? (typeof data.photo_data === 'string' && data.photo_data.startsWith('[')
-      ? JSON.parse(data.photo_data)
-      : [data.photo_data]) : [];
-
-    setSelectedListing({
-      id: data.id,
-      category: data.category,
-      location: data.location,
-      phone: data.phone,
-      seller_phone: data.phone,
-      price: data.price,
-      photos: photos,
-      audioBase64: data.audio_data || ''
-    });
-  } catch (err) {
-    console.error('Error:', err);
-  }
-};
-
+  };
 
   useEffect(() => {
     loadListings();
@@ -285,11 +267,11 @@ const formatPhoneWithPrefix = (phone) => {
       const { error } = await supabase.from('listings').insert([{
         category: selectedCategory,
         location: selectedLocation,
-        phone: phone,
+        phone: formatPhoneWithPrefix(phone),
         price: price,
         photo_data: JSON.stringify(photos),
         audio_data: audioBase64,
-        seller_phone: phone
+        seller_phone: formatPhoneWithPrefix(phone)
       }]);
 
       if (error) throw error;
@@ -310,57 +292,57 @@ const formatPhoneWithPrefix = (phone) => {
       alert('Njuroom sa.');
     }
   };
+
   const handleUpdateListing = async () => {
-  if (!selectedCategory || !selectedLocation || !phone || !price || !editingListingId) {
-    alert('Please fill in all required fields');
-    return;
-  }
-
-  try {
-    const updates = {
-      category: selectedCategory,
-      location: selectedLocation,
-      phone: phone,
-      price: parseInt(price),
-      created_at: new Date().toISOString()  // ← Update timestamp to move to top
-    };
-
-    if (audioBlob) {
-      const audioBase64 = await blobToBase64(audioBlob);
-      updates.audio_data = audioBase64;
+    if (!selectedCategory || !selectedLocation || !phone || !price || !editingListingId) {
+      alert('Please fill in all required fields');
+      return;
     }
 
-    if (photos.length > 0) {
-      updates.photo_data = JSON.stringify(photos);
-    }
+    try {
+      const updates = {
+        category: selectedCategory,
+        location: selectedLocation,
+        phone: formatPhoneWithPrefix(phone),
+        price: parseInt(price),
+        created_at: new Date().toISOString()
+      };
 
-    await supabase
-      .from('listings')
-      .update(updates)
-      .eq('id', editingListingId);
-    
-    setEditingListingId(null);
-    setAudioBlob(null);
-    setPhotos([]);
-    setSelectedCategory(null);
-    setSelectedLocation(null);
-    setPhone('');
-    setPrice('');
-    
-    await loadListings();
-    alert('Listing updated!');
-    setTimeout(() => {
-  setCurrentTab('my-listings');
-}, 500);
-    setCurrentTab('my-listings');
-  } catch (err) {
-    alert('Error: ' + err.message);
-  }
-};
+      if (audioBlob) {
+        const audioBase64 = await blobToBase64(audioBlob);
+        updates.audio_data = audioBase64;
+      }
+
+      if (photos.length > 0) {
+        updates.photo_data = JSON.stringify(photos);
+      }
+
+      await supabase
+        .from('listings')
+        .update(updates)
+        .eq('id', editingListingId);
+      
+      setEditingListingId(null);
+      setAudioBlob(null);
+      setPhotos([]);
+      setSelectedCategory(null);
+      setSelectedLocation(null);
+      setPhone('');
+      setPrice('');
+      
+      await loadListings();
+      alert('Listing updated!');
+      setCurrentTab('my-listings');
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  };
+
   const deleteListing = async (id) => {
     const listing = listings.find(l => l.id === id);
     
-if (!userPhone || formatPhoneWithPrefix(listing.seller_phone || listing.phone) !== formatPhoneWithPrefix(userPhone)) {      alert('Only the seller can delete this listing');
+    if (!userPhone || formatPhoneWithPrefix(listing.seller_phone || listing.phone) !== formatPhoneWithPrefix(userPhone)) {
+      alert('Only the seller can delete this listing');
       return;
     }
 
@@ -444,7 +426,88 @@ if (!userPhone || formatPhoneWithPrefix(listing.seller_phone || listing.phone) !
     }
   };
 
-  // ===== CORRECT PAGE ORDER =====
+  // PHONE VERIFICATION PAGE
+  if (showPhoneVerification) {
+    const isValidPhone = () => {
+      const phone = verificationPhone.replace(/\D/g, '');
+      return (phone.startsWith('1') && phone.length === 11) || (phone.startsWith('221') && phone.length === 12);
+    };
+
+    return (
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <button onClick={() => setShowPhoneVerification(false)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+            <div style={{ fontSize: '14px', fontWeight: '600' }}>Verify Phone</div>
+            <div style={{ width: '28px' }}></div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ fontSize: '40px', marginBottom: '16px' }}>📱</div>
+            <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>Verify Your Phone</div>
+            <div style={{ fontSize: '12px', color: '#999', marginBottom: '24px', textAlign: 'center', maxWidth: '300px' }}>Enter your US or Senegal phone number to start selling</div>
+
+            <input 
+              type="tel"
+              value={verificationPhone}
+              onChange={(e) => setVerificationPhone(e.target.value)}
+              placeholder="+1 (555) 123-4567 or +221 77 123 45 67"
+              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid ' + (verificationPhone && !isValidPhone() ? '#ff4444' : '#444'), borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
+            />
+            {verificationPhone && !isValidPhone() && <div style={{ fontSize: '11px', color: '#ff4444', marginBottom: '16px' }}>Please enter a valid US (+1) or Senegal (+221) number</div>}
+
+            <button 
+              onClick={() => {
+                if (!isValidPhone()) {
+                  alert('Please enter a valid US or Senegal phone number');
+                  return;
+                }
+                const code = Math.floor(100000 + Math.random() * 900000).toString();
+                setVerificationCode('');
+                alert('Verification code: ' + code + '\n\n(In production, this would be sent via SMS)');
+                window.testCode = code;
+              }}
+              disabled={!verificationPhone}
+              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: verificationPhone ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: verificationPhone ? 'pointer' : 'not-allowed', fontSize: '13px', marginBottom: '16px' }}>
+              Send Code
+            </button>
+
+            <input 
+              type="text"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              placeholder="Enter 6-digit code"
+              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
+            />
+
+            <button 
+              onClick={() => {
+                if (verificationCode === window.testCode) {
+                  setUserPhone(formatPhoneWithPrefix(verificationPhone));
+                  setPhoneVerified(true);
+                  setMyListingsPhoneConfirmed(true);
+                  setShowPhoneVerification(false);
+                  setCurrentTab('create');
+                  setVerificationPhone('');
+                  setVerificationCode('');
+                  alert('Phone verified!');
+                } else {
+                  alert('Invalid code');
+                }
+              }}
+              disabled={!verificationCode}
+              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: verificationCode ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: verificationCode ? 'pointer' : 'not-allowed', fontSize: '13px' }}>
+              Verify Code
+            </button>
+          </div>
+
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
+            <button onClick={() => setShowPhoneVerification(false)} style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // SETTINGS PAGE
   if (currentTab === 'settings') {
@@ -460,13 +523,7 @@ if (!userPhone || formatPhoneWithPrefix(listing.seller_phone || listing.phone) !
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
             <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', border: '1px solid #333', marginBottom: '16px' }}>
               <div style={{ fontSize: '12px', color: '#999', marginBottom: '8px' }}>Your Phone Number</div>
-              <input 
-                type="tel"
-                value={userPhone}
-                onChange={(e) => setUserPhone(e.target.value)}
-                placeholder="77 123 45 67"
-                style={{ width: '100%', padding: '12px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white' }}
-              />
+              <div style={{ fontSize: '13px', color: 'white', fontWeight: '600' }}>{userPhone || 'Not verified'}</div>
             </div>
 
             <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', border: '1px solid #333' }}>
@@ -486,179 +543,182 @@ if (!userPhone || formatPhoneWithPrefix(listing.seller_phone || listing.phone) !
   }
 
   // MY LISTINGS PAGE
-if (currentTab === 'my-listings') {
-  const isLoggedIn = phoneVerified || myListingsPhoneConfirmed;
+  if (currentTab === 'my-listings') {
+    const isLoggedIn = phoneVerified || myListingsPhoneConfirmed;
 
-  if (!isLoggedIn) {
-    const isValidPhone = () => {
-      const phone = tempPhone.replace(/\D/g, '');
-      return (phone.startsWith('1') && phone.length === 11) || (phone.startsWith('221') && phone.length === 12);
-    };
+    if (!isLoggedIn) {
+      const isValidPhone = () => {
+        const phone = tempPhone.replace(/\D/g, '');
+        return (phone.startsWith('1') && phone.length === 11) || (phone.startsWith('221') && phone.length === 12);
+      };
 
+      return (
+        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+          <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <button onClick={() => setCurrentTab('browse')} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+              <div style={{ fontSize: '14px', fontWeight: '600' }}>Verify Phone</div>
+              <div style={{ width: '28px' }}></div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ fontSize: '40px', marginBottom: '16px' }}>📱</div>
+              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>Verify Your Phone</div>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: '24px', textAlign: 'center', maxWidth: '300px' }}>Enter your US or Senegal phone number to view your listings</div>
+
+              <input 
+                type="tel"
+                value={tempPhone}
+                onChange={(e) => setTempPhone(e.target.value)}
+                placeholder="+1 (555) 123-4567 or +221 77 123 45 67"
+                style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid ' + (tempPhone && !isValidPhone() ? '#ff4444' : '#444'), borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
+              />
+              {tempPhone && !isValidPhone() && <div style={{ fontSize: '11px', color: '#ff4444', marginBottom: '16px' }}>Please enter a valid US (+1) or Senegal (+221) number</div>}
+
+              <button 
+                onClick={() => {
+                  if (!isValidPhone()) {
+                    alert('Please enter a valid US or Senegal phone number');
+                    return;
+                  }
+                  const code = Math.floor(100000 + Math.random() * 900000).toString();
+                  setVerificationCode('');
+                  alert('Verification code: ' + code + '\n\n(In production, this would be sent via SMS)');
+                  window.testCode = code;
+                }}
+                disabled={!tempPhone}
+                style={{ width: '100%', maxWidth: '300px', padding: '12px', background: tempPhone ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: tempPhone ? 'pointer' : 'not-allowed', fontSize: '13px', marginBottom: '16px' }}>
+                Send Code
+              </button>
+
+              <input 
+                type="text"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                placeholder="Enter 6-digit code"
+                style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
+              />
+
+              <button 
+                onClick={() => {
+                  if (verificationCode === window.testCode) {
+                    setUserPhone(formatPhoneWithPrefix(tempPhone));
+                    setPhoneVerified(true);
+                    setMyListingsPhoneConfirmed(true);
+                    setTempPhone('');
+                    setVerificationCode('');
+                    alert('Phone verified!');
+                  } else {
+                    alert('Invalid code');
+                  }
+                }}
+                disabled={!verificationCode}
+                style={{ width: '100%', maxWidth: '300px', padding: '12px', background: verificationCode ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: verificationCode ? 'pointer' : 'not-allowed', fontSize: '13px' }}>
+                Verify Code
+              </button>
+            </div>
+
+            <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
+              <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const myListings = listings.filter(l => formatPhoneWithPrefix(l.seller_phone || l.phone) === userPhone);
+    
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
         <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
           <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-            <button onClick={() => setCurrentTab('browse')} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-            <div style={{ fontSize: '14px', fontWeight: '600' }}>Verify Phone</div>
+            <button onClick={() => { setCurrentTab('browse'); setMyListingsPhoneConfirmed(false); }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+            <div style={{ fontSize: '14px', fontWeight: '600' }}>My Listings ({myListings.length})</div>
             <div style={{ width: '28px' }}></div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ fontSize: '40px', marginBottom: '16px' }}>📱</div>
-            <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>Verify Your Phone</div>
-            <div style={{ fontSize: '12px', color: '#999', marginBottom: '24px', textAlign: 'center', maxWidth: '300px' }}>Enter your US or Senegal phone number to view your listings</div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+            {myListings.length === 0 ? (
+              <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
+                <div>You haven't created any listings yet</div>
+              </div>
+            ) : (
+              myListings.map(listing => (
+                <div key={listing.id} onClick={async () => { 
+                  setCameFromMyListings(true);
+                  setCurrentPhotoIndex(0);
+                  await loadListingPhotos(listing.id);
+                  setCurrentTab('browse');
+                }} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer', position: 'relative' }}>
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
+                      <div style={{ fontSize: '40px' }}>{categoryIcons[listing.category] || '📦'}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '14px' }}>{listing.category}</div>
+                        <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>📍 {listing.location}</div>
+                        <div style={{ fontSize: '16px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                      </div>
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                      <button onClick={(e) => { e.stopPropagation(); setOpenListingMenu(openListingMenu === listing.id ? null : listing.id); }} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer' }}>⋮</button>
+                      {openListingMenu === listing.id && (
+                        <div style={{ position: 'absolute', top: '30px', right: '0', background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', zIndex: 50, minWidth: '150px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                          <button onClick={(e) => { 
+                            e.stopPropagation();
+                            setCurrentPhotoIndex(0);
+                            try {
+                              supabase
+                                .from('listings')
+                                .select('id, category, location, phone, price, photo_data, audio_data')
+                                .eq('id', listing.id)
+                                .single()
+                                .then(({ data }) => {
+                                  if (data) {
+                                    const photos = data.photo_data ? (typeof data.photo_data === 'string' && data.photo_data.startsWith('[')
+                                      ? JSON.parse(data.photo_data)
+                                      : [data.photo_data]) : [];
 
-            <input 
-              type="tel"
-              value={tempPhone}
-              onChange={(e) => setTempPhone(e.target.value)}
-              placeholder="+1 (555) 123-4567 or +221 77 123 45 67"
-              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid ' + (tempPhone && !isValidPhone() ? '#ff4444' : '#444'), borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
-            />
-            {tempPhone && !isValidPhone() && <div style={{ fontSize: '11px', color: '#ff4444', marginBottom: '16px' }}>Please enter a valid US (+1) or Senegal (+221) number</div>}
-
-            <button 
-              onClick={() => {
-                if (!isValidPhone()) {
-                  alert('Please enter a valid US or Senegal phone number');
-                  return;
-                }
-                const code = Math.floor(100000 + Math.random() * 900000).toString();
-                setVerificationCode('');
-                alert('Verification code: ' + code + '\n\n(In production, this would be sent via SMS)');
-                window.testCode = code;
-              }}
-              disabled={!tempPhone}
-              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: tempPhone ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: tempPhone ? 'pointer' : 'not-allowed', fontSize: '13px', marginBottom: '16px' }}>
-              Send Code
-            </button>
-
-            <input 
-              type="text"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              placeholder="Enter 6-digit code"
-              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
-            />
-
-            <button 
-              onClick={() => {
-                if (verificationCode === window.testCode) {
-                  setUserPhone(formatPhoneWithPrefix(tempPhone));
-                  setPhoneVerified(true);
-                  setMyListingsPhoneConfirmed(true);
-                  setTempPhone('');
-                  setVerificationCode('');
-                  alert('Phone verified!');
-                } else {
-                  alert('Invalid code');
-                }
-              }}
-              disabled={!verificationCode}
-              style={{ width: '100%', maxWidth: '300px', padding: '12px', background: verificationCode ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: verificationCode ? 'pointer' : 'not-allowed', fontSize: '13px' }}>
-              Verify Code
-            </button>
+                                    setPhotos(photos);
+                                    setAudioBlob(null);
+                                    setSelectedCategory(data.category);
+                                    setSelectedLocation(data.location);
+                                    setPhone(data.phone);
+                                    setPrice(data.price.toString());
+                                    setEditingListingId(listing.id);
+                                    setCameFromMyListings(true);
+                                    setCurrentTab('create');
+                                  }
+                                });
+                            } catch (err) {
+                              console.error('Error:', err);
+                            }
+                            setOpenListingMenu(null);
+                          }} style={{ width: '100%', padding: '12px 16px', background: 'transparent', border: 'none', color: 'white', fontSize: '13px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>✏️ Edit</button>
+                          <button onClick={(e) => { 
+                            e.stopPropagation();
+                            if (window.confirm('Delete this listing?')) { 
+                              deleteListing(listing.id);
+                            }
+                            setOpenListingMenu(null);
+                          }} style={{ width: '100%', padding: '12px 16px', background: 'transparent', border: 'none', color: '#ff4444', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontWeight: '500' }}>🗑️ Delete</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-            <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+            <button onClick={() => { setCurrentTab('browse'); setMyListingsPhoneConfirmed(false); }} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
           </div>
         </div>
       </div>
     );
   }
 
-  const myListings = listings.filter(l => formatPhoneWithPrefix(l.seller_phone || l.phone) === userPhone);
-  
-  return (
-    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <button onClick={() => { setCurrentTab('browse'); setMyListingsPhoneConfirmed(false); }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-          <div style={{ fontSize: '14px', fontWeight: '600' }}>My Listings ({myListings.length})</div>
-          <div style={{ width: '28px' }}></div>
-        </div>
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-          {myListings.length === 0 ? (
-            <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
-              <div>You haven't created any listings yet</div>
-            </div>
-          ) : (
-            myListings.map(listing => (
-              <div key={listing.id} onClick={async () => { 
-                setCurrentPhotoIndex(0);
-                await loadListingPhotos(listing.id);
-                setCurrentTab('browse'); 
-              }} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer', position: 'relative' }}>
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
-                    <div style={{ fontSize: '40px' }}>{categoryIcons[listing.category] || '📦'}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '14px' }}>{listing.category}</div>
-                      <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>📍 {listing.location}</div>
-                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
-                    </div>
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <button onClick={(e) => { e.stopPropagation(); setOpenListingMenu(openListingMenu === listing.id ? null : listing.id); }} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer' }}>⋮</button>
-                    {openListingMenu === listing.id && (
-                      <div style={{ position: 'absolute', top: '30px', right: '0', background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', zIndex: 50, minWidth: '150px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                        <button onClick={async (e) => { 
-  e.stopPropagation();
-  
-  try {
-    const { data } = await supabase
-      .from('listings')
-      .select('id, category, location, phone, price, photo_data, audio_data')
-      .eq('id', listing.id)
-      .single();
-
-    if (data) {
-      const photos = data.photo_data ? (typeof data.photo_data === 'string' && data.photo_data.startsWith('[')
-        ? JSON.parse(data.photo_data)
-        : [data.photo_data]) : [];
-
-      setPhotos(photos);
-      setAudioBlob(null);
-      setSelectedCategory(data.category);
-      setSelectedLocation(data.location);
-      setPhone(data.phone);
-      setPrice(data.price.toString());
-      setEditingListingId(listing.id);
-      setCurrentTab('create');
-    }
-  } catch (err) {
-    console.error('Error:', err);
-  }
-  
-  setOpenListingMenu(null);
-}} style={{ width: '100%', padding: '12px 16px', background: 'transparent', border: 'none', color: 'white', fontSize: '13px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>✏️ Edit</button>
-                        <button onClick={(e) => { 
-                          e.stopPropagation();
-                          if (window.confirm('Delete this listing?')) { 
-                            deleteListing(listing.id);
-                          }
-                          setOpenListingMenu(null);
-                        }} style={{ width: '100%', padding: '12px 16px', background: 'transparent', border: 'none', color: '#ff4444', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontWeight: '500' }}>🗑️ Delete</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-          <button onClick={() => { setCurrentTab('browse'); if (!phoneVerified) { setMyListingsPhoneConfirmed(false); } }} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
-        </div>
-      </div>
-    </div>
-  );
-}
   // MESSAGES PAGE
   if (currentTab === 'messages') {
     if (selectedConversation) {
@@ -672,12 +732,13 @@ if (currentTab === 'my-listings') {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-{messages.filter(m => 
-  m.listing_id === selectedConversation.id && (
-    (m.sender_phone === userPhone && m.receiver_phone === selectedConversation.phone) ||
-    (m.sender_phone === selectedConversation.phone && m.receiver_phone === userPhone)
-  )
-).map(msg => (                <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
+              {messages.filter(m => 
+                m.listing_id === selectedConversation.id && (
+                  (m.sender_phone === userPhone && m.receiver_phone === selectedConversation.phone) ||
+                  (m.sender_phone === selectedConversation.phone && m.receiver_phone === userPhone)
+                )
+              ).map(msg => (
+                <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
                   <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
                   {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
                   {msg.audio_data && (
@@ -746,93 +807,98 @@ if (currentTab === 'my-listings') {
   }
 
   // DETAIL PAGE
-if (selectedListing) {
-  const listing = selectedListing;
-  const currentPhoto = listing.photos && listing.photos.length > currentPhotoIndex ? listing.photos[currentPhotoIndex] : null;
-  
-  return (
-    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <button onClick={() => { setSelectedListing(null); setCurrentPhotoIndex(0); }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-        </div>
-
-        <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px', flexShrink: 0, backgroundImage: currentPhoto ? `url(${currentPhoto})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-          {!currentPhoto && (categoryIcons[listing.category] || '📦')}
-          {listing.photos && listing.photos.length > 1 && (
-            <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px' }}>
-              {listing.photos.map((_, idx) => (
-                <div key={idx} style={{ width: '8px', height: '8px', borderRadius: '50%', background: idx === currentPhotoIndex ? '#0f6e56' : 'rgba(255,255,255,0.5)', cursor: 'pointer' }} onClick={() => setCurrentPhotoIndex(idx)}></div>
-              ))}
-            </div>
-          )}
-          {currentPhotoIndex > 0 && <button onClick={() => setCurrentPhotoIndex(currentPhotoIndex - 1)} style={{ position: 'absolute', left: '16px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: '24px', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
-          {listing.photos && currentPhotoIndex < listing.photos.length - 1 && <button onClick={() => setCurrentPhotoIndex(currentPhotoIndex + 1)} style={{ position: 'absolute', right: '16px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: '24px', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
-        </div>
-
-        <div style={{ padding: '20px 16px', flex: 1, overflowY: 'auto' }}>
-          
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '22px', fontWeight: '600', marginBottom: '12px', color: 'white' }}>{listing.category}</div>
-            <div style={{ fontSize: '28px', fontWeight: '600', color: '#0f6e56', marginBottom: '12px' }}>{listing.price} F</div>
-            <div style={{ fontSize: '13px', color: '#999' }}>📍 {listing.location}</div>
-        
-          </div>
-          
-
-          <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
-
-          {listing.audioBase64 && (
-            <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
-              <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
-              <audio controls style={{ width: '100%', height: '44px' }} preload="auto">
-                <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
-                <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
-              </audio>
-            </div>
-          )}
-
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
-              <div style={{ fontSize: '20px', marginBottom: '8px' }}>📍</div>
-              <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Location</div>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>{listing.location}</div>
-            </div>
-            <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
-              <div style={{ fontSize: '20px', marginBottom: '8px' }}>🕐</div>
-              <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Listed</div>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>Now</div>
-            </div>
-          </div>
-{formatPhoneWithPrefix(listing.seller_phone || listing.phone) === formatPhoneWithPrefix(userPhone) && (  <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
-    <button onClick={() => { if (window.confirm('Delete this listing?')) { deleteListing(listing.id); } }} style={{ width: '50px', height: '50px', background: '#ff4444', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🗑️</button>
-  </div>
-)}
-        </div>
-  
-
-        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
-          <a href={`tel:${listing.phone}`} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☎ Call</a>
-          <button onClick={() => { setSelectedConversation(listing); setCurrentTab('messages'); }} style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬 Message</button>
-          
-        </div>
-      
-        
-      </div>
-      
-    </div>
+  if (selectedListing) {
+    const listing = selectedListing;
+    const currentPhoto = listing.photos && listing.photos.length > currentPhotoIndex ? listing.photos[currentPhotoIndex] : null;
     
-  );
-}
+    return (
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <button onClick={() => { 
+              setSelectedListing(null); 
+              setCurrentPhotoIndex(0);
+              if (cameFromMyListings) {
+                setCurrentTab('my-listings');
+                setCameFromMyListings(false);
+              }
+            }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>❤️</button>
+            </div>
+          </div>
+
+          <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '80px', flexShrink: 0, backgroundImage: currentPhoto ? `url(${currentPhoto})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', opacity: isLoadingListing ? 0.5 : 1 }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            {isLoadingListing && <div style={{ fontSize: '40px' }}>⏳</div>}
+            {!currentPhoto && !isLoadingListing && (categoryIcons[listing.category] || '📦')}
+            {listing.photos && listing.photos.length > 1 && (
+              <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px' }}>
+                {listing.photos.map((_, idx) => (
+                  <div key={idx} style={{ width: '8px', height: '8px', borderRadius: '50%', background: idx === currentPhotoIndex ? '#0f6e56' : 'rgba(255,255,255,0.5)', cursor: 'pointer' }} onClick={() => setCurrentPhotoIndex(idx)}></div>
+                ))}
+              </div>
+            )}
+            {currentPhotoIndex > 0 && <button onClick={() => setCurrentPhotoIndex(currentPhotoIndex - 1)} style={{ position: 'absolute', left: '16px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: '24px', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
+            {listing.photos && currentPhotoIndex < listing.photos.length - 1 && <button onClick={() => setCurrentPhotoIndex(currentPhotoIndex + 1)} style={{ position: 'absolute', right: '16px', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', fontSize: '24px', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
+          </div>
+
+          <div style={{ padding: '20px 16px', flex: 1, overflowY: 'auto' }}>
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '22px', fontWeight: '600', marginBottom: '12px', color: 'white' }}>{listing.category}</div>
+              <div style={{ fontSize: '28px', fontWeight: '600', color: '#0f6e56', marginBottom: '12px' }}>{listing.price} F</div>
+              <div style={{ fontSize: '13px', color: '#999' }}>📍 {listing.location}</div>
+            </div>
+
+            <div style={{ height: '1px', background: '#333', marginBottom: '20px' }}></div>
+
+            {listing.audioBase64 && (
+              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '20px', border: '1px solid #333' }}>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seller's note</div>
+                <audio controls style={{ width: '100%', height: '44px' }} preload="auto">
+                  <source src={`data:audio/webm;base64,${listing.audioBase64}`} type="audio/webm" />
+                  <source src={`data:audio/mp4;base64,${listing.audioBase64}`} type="audio/mp4" />
+                </audio>
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
+                <div style={{ fontSize: '20px', marginBottom: '8px' }}>📍</div>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Location</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>{listing.location}</div>
+              </div>
+              <div style={{ background: '#242424', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #333' }}>
+                <div style={{ fontSize: '20px', marginBottom: '8px' }}>🕐</div>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Listed</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>Now</div>
+              </div>
+            </div>
+
+            {formatPhoneWithPrefix(listing.seller_phone || listing.phone) === formatPhoneWithPrefix(userPhone) && (
+              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                <button onClick={() => { if (window.confirm('Delete this listing?')) { deleteListing(listing.id); } }} style={{ width: '50px', height: '50px', background: '#ff4444', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🗑️</button>
+              </div>
+            )}
+          </div>
+
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '12px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <a href={`tel:${listing.phone}`} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☎ Call</a>
+            <button onClick={() => { setSelectedConversation(listing); setCurrentTab('messages'); }} style={{ flex: 1, padding: '14px', background: '#25d366', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬 Message</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // CREATE PAGE
   if (currentTab === 'create') {
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
         <div style={{ background: '#242424', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
           <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-            <button onClick={() => setCurrentTab('browse')} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-<div style={{ fontSize: '14px', fontWeight: '600' }}>{editingListingId ? 'Edit Listing' : 'List Item'}</div>            <div style={{ width: '28px' }}></div>
+            <button onClick={() => { setCurrentTab(cameFromMyListings ? 'my-listings' : 'browse'); setEditingListingId(null); setCameFromMyListings(false); }} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+            <div style={{ fontSize: '14px', fontWeight: '600' }}>{editingListingId ? 'Edit Listing' : 'List Item'}</div>
+            <div style={{ width: '28px' }}></div>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
@@ -906,187 +972,112 @@ if (selectedListing) {
           </div>
 
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', display: 'flex', gap: '8px', flexShrink: 0 }}>
-<button onClick={() => { setCurrentTab('browse'); setEditingListingId(null); }} style={{ flex: 1, padding: '14px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
-<button onClick={editingListingId ? handleUpdateListing : handleListIt} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>{editingListingId ? 'Update' : 'List It'}</button>          </div>
+            <button onClick={() => { setCurrentTab(cameFromMyListings ? 'my-listings' : 'browse'); setEditingListingId(null); setCameFromMyListings(false); }} style={{ flex: 1, padding: '14px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+            <button onClick={editingListingId ? handleUpdateListing : handleListIt} style={{ flex: 1, padding: '14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>{editingListingId ? 'Update' : 'List It'}</button>
+          </div>
         </div>
       </div>
     );
   }
-  // PHONE VERIFICATION PAGE
-if (showPhoneVerification) {
-  const isValidPhone = () => {
-    const phone = verificationPhone.replace(/\D/g, '');
-    // US: 10 digits starting with 1, or Senegal: 12 digits starting with 221
-    return (phone.startsWith('1') && phone.length === 11) || (phone.startsWith('221') && phone.length === 12);
-  };
+
+  // HOME/BROWSE PAGE
+  const uniqueLocations = getUniqueLocations();
 
   return (
     <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <button onClick={() => setShowPhoneVerification(false)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-          <div style={{ fontSize: '14px', fontWeight: '600' }}>Verify Phone</div>
-          <div style={{ width: '28px' }}></div>
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', color: 'white', position: 'relative' }}>
+        
+        {/* Header with Menu */}
+        <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Sunu Market</div>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '4px', scrollBehavior: 'smooth' }}>
+              <button onClick={() => setSelectedLocationFilter('All')} style={{ padding: '6px 12px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white', flexShrink: 0 }}>All</button>
+              {uniqueLocations.map(loc => (
+                <button key={loc} onClick={() => setSelectedLocationFilter(loc)} style={{ padding: '6px 12px', background: selectedLocationFilter === loc ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === loc ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white', flexShrink: 0 }}>📍 {loc}</button>
+              ))}
+            </div>
+          </div>
+          
+          <button onClick={() => setShowMenu(!showMenu)} style={{ background: 'white', border: 'none', borderRadius: '8px', width: '40px', height: '40px', minWidth: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', marginLeft: '12px' }}>☰</button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: '40px', marginBottom: '16px' }}>📱</div>
-          <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>Verify Your Phone</div>
-          <div style={{ fontSize: '12px', color: '#999', marginBottom: '24px', textAlign: 'center', maxWidth: '300px' }}>Enter your US or Senegal phone number to start selling</div>
+        {/* Menu Panel */}
+        {showMenu && (
+          <div style={{ position: 'absolute', top: '90px', right: '16px', background: '#242424', border: '1px solid #333', borderRadius: '12px', zIndex: 100, minWidth: '200px', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }}>
+            <button onClick={() => { setCurrentTab('my-listings'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>📋 My Listings</button>
+            <button onClick={() => { setCurrentTab('messages'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>💬 Messages</button>
+            <button onClick={() => { setCurrentTab('settings'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', fontWeight: '500' }}>⚙️ Settings</button>
+          </div>
+        )}
 
-          <input 
-            type="tel"
-            value={verificationPhone}
-            onChange={(e) => setVerificationPhone(e.target.value)}
-            placeholder="+1 (555) 123-4567 or +221 77 123 45 67"
-            style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid ' + (verificationPhone && !isValidPhone() ? '#ff4444' : '#444'), borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }}
-          />
-          {verificationPhone && !isValidPhone() && <div style={{ fontSize: '11px', color: '#ff4444', marginBottom: '16px' }}>Please enter a valid US (+1) or Senegal (+221) number</div>}
+        {/* Listings Grid */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          {listings.length > 0 ? (
+            (() => {
+              const filteredListings = selectedLocationFilter === 'All' 
+                ? listings 
+                : listings.filter(l => l.location === selectedLocationFilter);
+              
+              const categoryMap = {
+                'Fish': 'Yeet',
+                'Vegetables': 'Taaxat',
+                'Fruits': 'Pampe',
+                'Rice': 'Jeep',
+                'Loujum': 'Loujum'
+              };
 
-          <button 
-            onClick={() => {
-              if (!isValidPhone()) {
-                alert('Please enter a valid US or Senegal phone number');
-                return;
-              }
-              const code = Math.floor(100000 + Math.random() * 900000).toString();
-              setVerificationCode('');
-              alert('Verification code: ' + code + '\n\n(In production, this would be sent via SMS)');
-              // For testing: save code temporarily
-              window.testCode = code;
-            }}
-            disabled={!verificationPhone}
-            style={{ width: '100%', maxWidth: '300px', padding: '12px', background: verificationPhone ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: verificationPhone ? 'pointer' : 'not-allowed', fontSize: '13px', marginBottom: '16px' }}>
-            Send Code
-          </button>
+              const normalizedListings = filteredListings.map(l => ({
+                ...l,
+                displayCategory: categoryMap[l.category] || l.category
+              }));
 
-          <input 
-            type="text"
-            value={verificationCode}
-            onChange={(e) => setVerificationCode(e.target.value)}
-            placeholder="Enter 6-digit code"
-            style={{ width: '100%', maxWidth: '300px', padding: '12px', background: '#242424', border: '1px solid #444', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', color: 'white', marginBottom: '16px' }}
-          />
+              const categories = [...new Set(normalizedListings.map(l => l.displayCategory))];
+              const titles = { 'Yeet': '🐟 Fish', 'Taaxat': '🥬 Vegetables', 'Pampe': '🍌 Fruits', 'Jeep': '🍚 Rice', 'Loujum': '🍲 Loujum' };
+              const colors = { 'Yeet': '#0f6e56', 'Taaxat': '#1D9E75', 'Pampe': '#D4A574', 'Jeep': '#B8860B', 'Loujum': '#B8860B' };
+              
+              return categories.map(cat => {
+                const items = normalizedListings.filter(l => l.displayCategory === cat);
+                return (
+                  <div key={cat} style={{ marginBottom: '28px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || cat}</div>
+                    <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px', scrollBehavior: 'smooth' }}>
+                      {items.map(listing => (
+                        <div key={listing.id} onClick={async () => { 
+                          setCameFromMyListings(false);
+                          setCurrentPhotoIndex(0);
+                          await loadListingPhotos(listing.id);
+                          setCurrentTab('browse');
+                        }} style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                          <div style={{ height: '60px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photos && listing.photos.length > 0 && listing.photos[0] ? `url(${listing.photos[0]})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px', backgroundColor: '#333' }}>{!listing.photos || listing.photos.length === 0 || !listing.photos[0] ? (categoryIcons[listing.category] || '📦') : ''}</div>
+                          <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{listing.category}</div>
+                          <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              });
+            })()
+          ) : (
+            <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
+              <div>No listings yet</div>
+            </div>
+          )}
+        </div>
 
-          <button 
-            onClick={() => {
-              if (verificationCode === window.testCode) {
-                setUserPhone(verificationPhone);
-                setPhoneVerified(true);
-                setShowPhoneVerification(false);
-                setCurrentTab('create');
-                setVerificationPhone('');
-                setVerificationCode('');
-                alert('Phone verified!');
-              } else {
-                alert('Invalid code');
-              }
-            }}
-            disabled={!verificationCode}
-            style={{ width: '100%', maxWidth: '300px', padding: '12px', background: verificationCode ? '#0f6e56' : '#444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: verificationCode ? 'pointer' : 'not-allowed', fontSize: '13px' }}>
-            Verify Code
-          </button>
+        {/* Record Button - Full Width */}
+        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
+          <button onClick={() => {
+            if (!phoneVerified) {
+              setShowPhoneVerification(true);
+            } else {
+              setCurrentTab('create');
+            }
+          }} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>
         </div>
       </div>
     </div>
   );
-}
-
-  // HOME/BROWSE PAGE (DEFAULT)
-const uniqueLocations = getUniqueLocations();
-
-return (
-  <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', color: 'white', position: 'relative' }}>
-      
-      {/* Header with Menu */}
-      <div style={{ background: 'linear-gradient(135deg, #0f6e56 0%, #085041 100%)', color: 'white', padding: '16px', borderBottom: '1px solid #333', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>Sunu Market</div>
-          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '4px', scrollBehavior: 'smooth' }}>
-            <button onClick={() => setSelectedLocationFilter('All')} style={{ padding: '6px 12px', background: selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === 'All' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white', flexShrink: 0 }}>All</button>
-            {uniqueLocations.map(loc => (
-              <button key={loc} onClick={() => setSelectedLocationFilter(loc)} style={{ padding: '6px 12px', background: selectedLocationFilter === loc ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', borderRadius: '20px', fontSize: '11px', whiteSpace: 'nowrap', border: '1px solid ' + (selectedLocationFilter === loc ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'), fontWeight: '600', cursor: 'pointer', color: 'white', flexShrink: 0 }}>📍 {loc}</button>
-            ))}
-          </div>
-        </div>
-        
-        <button onClick={() => setShowMenu(!showMenu)} style={{ background: 'white', border: 'none', borderRadius: '8px', width: '40px', height: '40px', minWidth: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', marginLeft: '12px' }}>☰</button>
-      </div>
-
-      {/* Menu Panel */}
-      {showMenu && (
-        <div style={{ position: 'absolute', top: '90px', right: '16px', background: '#242424', border: '1px solid #333', borderRadius: '12px', zIndex: 100, minWidth: '200px', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }}>
-          <button onClick={() => { setCurrentTab('my-listings'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>📋 My Listings</button>
-          <button onClick={() => { setCurrentTab('messages'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>💬 Messages</button>
-          <button onClick={() => { setCurrentTab('settings'); setShowMenu(false); }} style={{ width: '100%', padding: '16px', background: 'transparent', border: 'none', color: 'white', fontSize: '14px', cursor: 'pointer', textAlign: 'left', fontWeight: '500' }}>⚙️ Settings</button>
-        </div>
-      )}
-
-      {/* Listings Grid */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-        {listings.length > 0 ? (
-          (() => {
-            const filteredListings = selectedLocationFilter === 'All' 
-              ? listings 
-              : listings.filter(l => l.location === selectedLocationFilter);
-            
-            const categoryMap = {
-              'Fish': 'Yeet',
-              'Vegetables': 'Taaxat',
-              'Fruits': 'Pampe',
-              'Rice': 'Jeep',
-              'Loujum': 'Loujum'
-            };
-
-            const normalizedListings = filteredListings.map(l => ({
-              ...l,
-              displayCategory: categoryMap[l.category] || l.category
-            }));
-
-            const categories = [...new Set(normalizedListings.map(l => l.displayCategory))];
-            const titles = { 'Yeet': '🐟 Fish', 'Taaxat': '🥬 Vegetables', 'Pampe': '🍌 Fruits', 'Jeep': '🍚 Rice', 'Loujum': '🍲 Loujum' };
-            const colors = { 'Yeet': '#0f6e56', 'Taaxat': '#1D9E75', 'Pampe': '#D4A574', 'Jeep': '#B8860B', 'Loujum': '#B8860B' };
-            
-            return categories.map(cat => {
-              const items = normalizedListings.filter(l => l.displayCategory === cat);
-              return (
-                <div key={cat} style={{ marginBottom: '28px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid ' + (colors[cat] || '#0f6e56'), color: 'white' }}>{titles[cat] || cat}</div>
-                  <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px', scrollBehavior: 'smooth' }}>
-                    {items.map(listing => (
-                      <div key={listing.id} onClick={async () => { 
-                        setCurrentPhotoIndex(0);
-                        await loadListingPhotos(listing.id);
-                      }} style={{ minWidth: '90px', background: '#242424', border: '1px solid #333', borderRadius: '10px', padding: '10px', textAlign: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                        <div style={{ height: '60px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', marginBottom: '8px', backgroundImage: listing.photos && listing.photos.length > 0 && listing.photos[0] ? `url(${listing.photos[0]})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '6px', backgroundColor: '#333' }}>{!listing.photos || listing.photos.length === 0 || !listing.photos[0] ? (categoryIcons[listing.category] || '📦') : ''}</div>
-                        <div style={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{listing.category}</div>
-                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f6e56' }}>{listing.price} F</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            });
-          })()
-        ) : (
-          <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
-            <div style={{ fontSize: '32px', marginBottom: '12px' }}>📭</div>
-            <div>No listings yet</div>
-          </div>
-        )}
-      </div>
-
-      {/* Record Button - Full Width */}
-      <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-<button onClick={() => {
-  if (!phoneVerified) {
-    setShowPhoneVerification(true);
-  } else {
-    setCurrentTab('create');
-  }
-}} style={{ width: '100%', padding: '12px', background: '#0f6e56', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>🎤 Record</button>      </div>
-    </div>
-  </div>
-);
 }

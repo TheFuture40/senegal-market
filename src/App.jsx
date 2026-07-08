@@ -17,6 +17,7 @@ export default function App() {
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const inlineAudioRef = useRef(null);
+  const conversationAudioRef = useRef(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
@@ -50,6 +51,9 @@ export default function App() {
   const [editingListingId, setEditingListingId] = useState(null);
   const [cameFromMyListings, setCameFromMyListings] = useState(false);
   const [playingListingId, setPlayingListingId] = useState(null);
+  const [playingMessageId, setPlayingMessageId] = useState(null);
+  const [messageDurations, setMessageDurations] = useState({});
+  const [showTypeOption, setShowTypeOption] = useState(false);
 
   const formatPhoneWithPrefix = (phone) => {
     if (!phone) return phone;
@@ -88,6 +92,47 @@ export default function App() {
     } catch (e) {
       return [];
     }
+  };
+
+  // Builds an <audio> element with both webm and mp4 <source> children so the
+  // browser can pick whichever format it can actually decode, instead of us
+  // guessing a single mime type up front.
+  const createDualSourceAudio = (audioBase64) => {
+    const audio = document.createElement('audio');
+    const webmSource = document.createElement('source');
+    webmSource.src = `data:audio/webm;base64,${audioBase64}`;
+    webmSource.type = 'audio/webm';
+    const mp4Source = document.createElement('source');
+    mp4Source.src = `data:audio/mp4;base64,${audioBase64}`;
+    mp4Source.type = 'audio/mp4';
+    audio.appendChild(webmSource);
+    audio.appendChild(mp4Source);
+    return audio;
+  };
+
+  // "1:05" style formatting for a duration in seconds.
+  const formatDuration = (seconds) => {
+    if (!seconds || !isFinite(seconds)) return '0:00';
+    const total = Math.round(seconds);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // A stable (not random-per-render) set of bar heights for a voice note's
+  // decorative waveform, derived from the message id so it doesn't jump
+  // around on re-render.
+  const waveformHeights = (seed, count = 7) => {
+    const str = String(seed);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 31 + str.charCodeAt(i)) % 1000;
+    }
+    const heights = [];
+    for (let i = 0; i < count; i++) {
+      heights.push(4 + ((hash * (i + 1)) % 13));
+    }
+    return heights;
   };
 
   const loadListings = async () => {
@@ -175,6 +220,25 @@ export default function App() {
     loadListings();
     loadMessages();
   }, []);
+
+  // Probe the duration of any voice message we haven't measured yet (without
+  // playing it), so bubbles can show a real "0:14" instead of a placeholder.
+  useEffect(() => {
+    messages.forEach(msg => {
+      if (!msg.audio_data || messageDurations[msg.id] !== undefined) return;
+
+      const probe = createDualSourceAudio(msg.audio_data);
+      probe.preload = 'metadata';
+      probe.onloadedmetadata = () => {
+        setMessageDurations(prev => (prev[msg.id] !== undefined ? prev : { ...prev, [msg.id]: probe.duration }));
+      };
+      probe.onerror = () => {
+        setMessageDurations(prev => (prev[msg.id] !== undefined ? prev : { ...prev, [msg.id]: 0 }));
+      };
+      probe.load();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
   const startRecording = async () => {
     audioChunksRef.current = [];
@@ -446,19 +510,7 @@ export default function App() {
       current.currentTime = 0;
     }
 
-    // Use the same dual-<source> fallback the detail/message audio players use
-    // (webm first, mp4 second) instead of guessing a single mime type - a
-    // wrong guess makes some browsers refuse to decode the data URI at all.
-    const audio = document.createElement('audio');
-    const webmSource = document.createElement('source');
-    webmSource.src = `data:audio/webm;base64,${audioBase64}`;
-    webmSource.type = 'audio/webm';
-    const mp4Source = document.createElement('source');
-    mp4Source.src = `data:audio/mp4;base64,${audioBase64}`;
-    mp4Source.type = 'audio/mp4';
-    audio.appendChild(webmSource);
-    audio.appendChild(mp4Source);
-
+    const audio = createDualSourceAudio(audioBase64);
     inlineAudioRef.current = audio;
 
     audio.onended = () => setPlayingListingId(null);
@@ -470,6 +522,39 @@ export default function App() {
       .catch((err) => {
         console.error('Inline audio playback failed:', err);
         setPlayingListingId(null);
+      });
+  };
+
+  // Same play/pause toggle as toggleInlineAudio, scoped to a message inside
+  // an open conversation instead of a listing in the messages list.
+  const toggleMessageAudio = (messageId, audioBase64) => {
+    if (!audioBase64) return;
+
+    const current = conversationAudioRef.current;
+
+    if (playingMessageId === messageId && current) {
+      current.pause();
+      setPlayingMessageId(null);
+      return;
+    }
+
+    if (current) {
+      current.pause();
+      current.currentTime = 0;
+    }
+
+    const audio = createDualSourceAudio(audioBase64);
+    conversationAudioRef.current = audio;
+
+    audio.onended = () => setPlayingMessageId(null);
+    audio.onerror = () => setPlayingMessageId(null);
+
+    audio.load();
+    audio.play()
+      .then(() => setPlayingMessageId(messageId))
+      .catch((err) => {
+        console.error('Message audio playback failed:', err);
+        setPlayingMessageId(null);
       });
   };
 
@@ -882,33 +967,95 @@ if (currentTab === 'messages') {
             <div style={{ width: '28px' }}></div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {messages.filter(m =>
               m.listing_id === selectedConversation.id && (
                 (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(selectedConversation.phone)) ||
                 (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(selectedConversation.phone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone))
               )
-            ).map(msg => (
-              <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
-                <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
-                {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
-                {msg.audio_data && (
-                  <audio controls style={{ width: '100%', height: '32px' }} preload="auto">
-                    <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
-                    <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
-                  </audio>
-                )}
-                <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
-              </div>
-            ))}
+            ).map(msg => {
+              const isOwn = formatPhoneWithPrefix(msg.sender_phone) === formatPhoneWithPrefix(userPhone);
+              const bars = waveformHeights(msg.id);
+              return (
+                <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isOwn ? 'flex-end' : 'flex-start' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    maxWidth: '82%',
+                    background: isOwn ? '#0b4a3c' : '#242424',
+                    border: isOwn ? 'none' : '1px solid #333',
+                    borderRadius: '14px',
+                    padding: '10px 12px'
+                  }}>
+                    {msg.audio_data ? (
+                      <>
+                        <button
+                          onClick={() => toggleMessageAudio(msg.id, msg.audio_data)}
+                          style={{
+                            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                            background: isOwn ? '#9fe1cb' : '#0f6e56',
+                            border: 'none', color: isOwn ? '#085041' : 'white',
+                            fontSize: '12px', cursor: 'pointer', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          {playingMessageId === msg.id ? '⏸' : '▶'}
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '18px', flex: 1, minWidth: '50px' }}>
+                          {bars.map((h, i) => (
+                            <div key={i} style={{ width: '2px', height: `${h}px`, background: isOwn ? '#9fe1cb' : '#1D9E75', borderRadius: '1px' }}></div>
+                          ))}
+                        </div>
+                        <span style={{ fontSize: '10px', color: isOwn ? '#c8e9dc' : '#999', flexShrink: 0 }}>
+                          {formatDuration(messageDurations[msg.id])}
+                        </span>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '13px', color: 'white' }}>{msg.message_text}</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
+                </div>
+              );
+            })}
           </div>
 
-          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '16px', flexShrink: 0 }}>
-            <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>Chatting as {userPhone}</div>
-            <button onClick={isRecordingMessage ? stopRecordingMessage : startRecordingMessage} style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginBottom: '8px' }}>{isRecordingMessage ? '⏹ Stop Recording' : '🎤 Record Voice'}</button>
-            {messageAudioBlob && <div style={{ fontSize: '10px', color: '#0f6e56', marginBottom: '8px' }}>✓ Voice recorded</div>}
-            <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Or type a message..." style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }} />
-            <button onClick={sendMessage} style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Send Message</button>
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '16px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>Chatting as {userPhone}</div>
+
+            <button
+              onClick={isRecordingMessage ? stopRecordingMessage : startRecordingMessage}
+              style={{
+                width: '64px', height: '64px', borderRadius: '50%', border: 'none', color: 'white',
+                background: isRecordingMessage ? '#ff4444' : '#0f6e56',
+                fontSize: '26px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              {isRecordingMessage ? '⏹' : '🎤'}
+            </button>
+            <div style={{ fontSize: '11px', color: '#999' }}>{isRecordingMessage ? 'Recording... tap to stop' : 'Tap to record a voice reply'}</div>
+
+            {messageAudioBlob && (
+              <div style={{ width: '100%', background: '#1a1a1a', borderRadius: '10px', padding: '10px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <audio controls style={{ width: '100%', height: '32px' }} src={URL.createObjectURL(messageAudioBlob)} preload="auto" />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setMessageAudioBlob(null)} style={{ flex: 1, padding: '8px', background: '#333', border: 'none', borderRadius: '8px', color: 'white', fontSize: '11px', cursor: 'pointer' }}>Discard</button>
+                  <button onClick={sendMessage} style={{ flex: 1, padding: '8px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Send voice</button>
+                </div>
+              </div>
+            )}
+
+            <button onClick={() => setShowTypeOption(!showTypeOption)} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: '11px', cursor: 'pointer', marginTop: '4px' }}>
+              ⌨️ {showTypeOption ? 'Hide typing' : 'Type instead'}
+            </button>
+
+            {showTypeOption && (
+              <div style={{ width: '100%', display: 'flex', gap: '8px' }}>
+                <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Type a message..." style={{ flex: 1, padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white' }} />
+                <button onClick={sendMessage} style={{ padding: '10px 14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>Send</button>
+              </div>
+            )}
           </div>
         </div>
       </div>

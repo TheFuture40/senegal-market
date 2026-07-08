@@ -1155,9 +1155,23 @@ if (currentTab === 'messages') {
             const hasMessages = messages.some(m => m.listing_id === listing.id && (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) || formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone)));
             if (!hasMessages) return null;
 
-            const listingMessages = messages.filter(m => m.listing_id === listing.id).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            // Scoped to messages that actually involve the current user, so we
+            // never pick up some other buyer's message on the same listing.
+            const listingMessages = messages
+              .filter(m => m.listing_id === listing.id && (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) || formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone)))
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             const latestMessage = listingMessages[0];
             const isAudio = latestMessage?.audio_data;
+
+            // The listing's stored phone is the seller's own number - that's
+            // the right "other party" when a buyer opens this thread, but
+            // wrong when the seller opens their own listing's messages (it
+            // would equal userPhone and the detail view's filter would then
+            // match nothing). Derive the actual counterpart from whichever
+            // side of the latest message isn't us.
+            const otherPartyPhone = latestMessage
+              ? (formatPhoneWithPrefix(latestMessage.sender_phone) === formatPhoneWithPrefix(userPhone) ? latestMessage.receiver_phone : latestMessage.sender_phone)
+              : listing.phone;
 
             return (
               <div
@@ -1173,7 +1187,7 @@ if (currentTab === 'messages') {
               >
                 <div
                   style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flex: 1, minWidth: 0 }}
-                  onClick={() => setSelectedConversation(listing)}
+                  onClick={() => setSelectedConversation({ ...listing, phone: otherPartyPhone })}
                 >
                   <div style={{ fontSize: '28px', flexShrink: 0 }}>{categoryIcons[listing.category] || '📦'}</div>
                   <div style={{ minWidth: 0 }}>

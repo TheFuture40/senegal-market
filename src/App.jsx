@@ -360,8 +360,7 @@ const formatPhoneWithPrefix = (phone) => {
   const deleteListing = async (id) => {
     const listing = listings.find(l => l.id === id);
     
-    if (!userPhone || listing.phone !== userPhone) {
-      alert('Only the seller can delete this listing');
+if (!userPhone || formatPhoneWithPrefix(listing.seller_phone || listing.phone) !== formatPhoneWithPrefix(userPhone)) {      alert('Only the seller can delete this listing');
       return;
     }
 
@@ -592,6 +591,7 @@ if (currentTab === 'my-listings') {
               <div key={listing.id} onClick={async () => { 
                 setCurrentPhotoIndex(0);
                 await loadListingPhotos(listing.id);
+                setCurrentTab('browse'); 
               }} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer', position: 'relative' }}>
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
@@ -606,12 +606,36 @@ if (currentTab === 'my-listings') {
                     <button onClick={(e) => { e.stopPropagation(); setOpenListingMenu(openListingMenu === listing.id ? null : listing.id); }} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer' }}>⋮</button>
                     {openListingMenu === listing.id && (
                       <div style={{ position: 'absolute', top: '30px', right: '0', background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', zIndex: 50, minWidth: '150px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                        <button onClick={(e) => { 
-                          e.stopPropagation();
-                          setCurrentPhotoIndex(0);
-                          loadListingPhotos(listing.id);
-                          setOpenListingMenu(null);
-                        }} style={{ width: '100%', padding: '12px 16px', background: 'transparent', border: 'none', color: 'white', fontSize: '13px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>✏️ Edit</button>
+                        <button onClick={async (e) => { 
+  e.stopPropagation();
+  
+  try {
+    const { data } = await supabase
+      .from('listings')
+      .select('id, category, location, phone, price, photo_data, audio_data')
+      .eq('id', listing.id)
+      .single();
+
+    if (data) {
+      const photos = data.photo_data ? (typeof data.photo_data === 'string' && data.photo_data.startsWith('[')
+        ? JSON.parse(data.photo_data)
+        : [data.photo_data]) : [];
+
+      setPhotos(photos);
+      setAudioBlob(null);
+      setSelectedCategory(data.category);
+      setSelectedLocation(data.location);
+      setPhone(data.phone);
+      setPrice(data.price.toString());
+      setEditingListingId(listing.id);
+      setCurrentTab('create');
+    }
+  } catch (err) {
+    console.error('Error:', err);
+  }
+  
+  setOpenListingMenu(null);
+}} style={{ width: '100%', padding: '12px 16px', background: 'transparent', border: 'none', color: 'white', fontSize: '13px', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #333', fontWeight: '500' }}>✏️ Edit</button>
                         <button onClick={(e) => { 
                           e.stopPropagation();
                           if (window.confirm('Delete this listing?')) { 
@@ -648,8 +672,12 @@ if (currentTab === 'my-listings') {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {messages.filter(m => m.listing_id === selectedConversation.id).map(msg => (
-                <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
+{messages.filter(m => 
+  m.listing_id === selectedConversation.id && (
+    (m.sender_phone === userPhone && m.receiver_phone === selectedConversation.phone) ||
+    (m.sender_phone === selectedConversation.phone && m.receiver_phone === userPhone)
+  )
+).map(msg => (                <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
                   <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
                   {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
                   {msg.audio_data && (
@@ -777,8 +805,7 @@ if (selectedListing) {
               <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>Now</div>
             </div>
           </div>
-          {listing.seller_phone === userPhone && (
-  <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+{formatPhoneWithPrefix(listing.seller_phone || listing.phone) === formatPhoneWithPrefix(userPhone) && (  <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
     <button onClick={() => { if (window.confirm('Delete this listing?')) { deleteListing(listing.id); } }} style={{ width: '50px', height: '50px', background: '#ff4444', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🗑️</button>
   </div>
 )}

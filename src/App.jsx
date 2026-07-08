@@ -22,6 +22,9 @@ export default function App() {
   const fileInputRef = useRef(null);
   const inlineAudioRef = useRef(null);
   const conversationAudioRef = useRef(null);
+  const messagesScrollRef = useRef(null);
+  const typingChannelRef = useRef(null);
+  const typingClearTimeoutRef = useRef(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
@@ -70,6 +73,7 @@ export default function App() {
   const [playingMessageId, setPlayingMessageId] = useState(null);
   const [messageDurations, setMessageDurations] = useState({});
   const [showTypeOption, setShowTypeOption] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
 
   const formatPhoneWithPrefix = (phone) => {
     if (!phone) return phone;
@@ -278,6 +282,31 @@ export default function App() {
     loadMessages();
   }, []);
 
+  // Keep listings and messages live without requiring a manual reload.
+  // New rows (someone else's message, a new or edited listing) show up as
+  // they happen instead of only appearing the next time the app is opened.
+  useEffect(() => {
+    const messagesChannel = supabase
+      .channel('sunu-messages-changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        setMessages(prev => (prev.some(m => m.id === payload.new.id) ? prev : [payload.new, ...prev]));
+      })
+      .subscribe();
+
+    const listingsChannel = supabase
+      .channel('sunu-listings-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listings' }, () => {
+        loadListings();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(listingsChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Probe the duration of voice messages in the open conversation (without
   // playing them), so bubbles can show a real "0:14" instead of a placeholder.
   //
@@ -318,6 +347,51 @@ export default function App() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, selectedConversation]);
+
+  // Keep the open thread scrolled to the newest message, like any normal
+  // chat, whenever a message arrives or the typing indicator appears.
+  useEffect(() => {
+    if (!selectedConversation || !messagesScrollRef.current) return;
+    messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
+  }, [messages, selectedConversation, otherTyping]);
+
+  // Opens a "typing" broadcast channel scoped to whichever conversation is
+  // open, so we can show a dots indicator when the other person is actively
+  // recording or typing a reply. Ephemeral - nothing here touches the
+  // database, it just relays a signal in real time.
+  useEffect(() => {
+    setOtherTyping(false);
+    if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current);
+
+    if (!selectedConversation) {
+      typingChannelRef.current = null;
+      return;
+    }
+
+    const channel = supabase.channel(`sunu-typing-${selectedConversation.id}`);
+    channel
+      .on('broadcast', { event: 'typing' }, (message) => {
+        const fromPhone = message.payload?.senderPhone;
+        if (!fromPhone) return;
+        // Only react to the person we're actually talking to, not our own
+        // broadcast bouncing back or someone else's thread on this listing.
+        if (formatPhoneWithPrefix(fromPhone) !== formatPhoneWithPrefix(selectedConversation.phone)) return;
+
+        setOtherTyping(true);
+        if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current);
+        typingClearTimeoutRef.current = setTimeout(() => setOtherTyping(false), 3000);
+      })
+      .subscribe();
+
+    typingChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      typingChannelRef.current = null;
+      if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConversation?.id, selectedConversation?.phone]);
 
   const startRecording = async () => {
     audioChunksRef.current = [];
@@ -383,6 +457,7 @@ export default function App() {
 
       mediaRecorder.start();
       setIsRecordingMessage(true);
+      broadcastTyping();
     } catch (err) {
       alert('Njuroom sa microphone.');
     }
@@ -531,6 +606,17 @@ export default function App() {
     } catch (err) {
       alert('Error deleting listing');
     }
+  };
+
+  // Lets the other person in this thread know we're actively recording or
+  // typing a reply, so they can see the bouncing-dots indicator.
+  const broadcastTyping = () => {
+    if (!typingChannelRef.current || !userPhone) return;
+    typingChannelRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { senderPhone: userPhone }
+    });
   };
 
   const sendMessage = async () => {
@@ -1047,13 +1133,19 @@ if (currentTab === 'messages') {
             <div style={{ width: '28px' }}></div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {messages.filter(m =>
-              m.listing_id === selectedConversation.id && (
-                (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(selectedConversation.phone)) ||
-                (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(selectedConversation.phone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone))
+          <div ref={messagesScrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {messages
+              .filter(m =>
+                m.listing_id === selectedConversation.id && (
+                  (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(selectedConversation.phone)) ||
+                  (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(selectedConversation.phone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone))
+                )
               )
-            ).map(msg => {
+              // messages state is loaded newest-first (for quick "latest
+              // message" lookups elsewhere) - a chat thread reads oldest to
+              // newest top-to-bottom, so re-sort just for this render.
+              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+              .map(msg => {
               const isOwn = formatPhoneWithPrefix(msg.sender_phone) === formatPhoneWithPrefix(userPhone);
               const bars = waveformHeights(msg.id);
               return (
@@ -1099,6 +1191,21 @@ if (currentTab === 'messages') {
                 </div>
               );
             })}
+            {otherTyping && (
+              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                <style>{`
+                  @keyframes sunuTypingBounce {
+                    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+                    30% { transform: translateY(-4px); opacity: 1; }
+                  }
+                `}</style>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#242424', border: '1px solid #333', borderRadius: '14px', padding: '10px 14px' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#999', animation: 'sunuTypingBounce 1s infinite', animationDelay: '0s' }}></div>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#999', animation: 'sunuTypingBounce 1s infinite', animationDelay: '0.15s' }}></div>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#999', animation: 'sunuTypingBounce 1s infinite', animationDelay: '0.3s' }}></div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '16px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
@@ -1132,7 +1239,7 @@ if (currentTab === 'messages') {
 
             {showTypeOption && (
               <div style={{ width: '100%', display: 'flex', gap: '8px' }}>
-                <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Type a message..." style={{ flex: 1, padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white' }} />
+                <input type="text" value={messageText} onChange={(e) => { setMessageText(e.target.value); broadcastTyping(); }} placeholder="Type a message..." style={{ flex: 1, padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white' }} />
                 <button onClick={sendMessage} style={{ padding: '10px 14px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>Send</button>
               </div>
             )}

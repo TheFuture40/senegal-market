@@ -110,6 +110,19 @@ export default function App() {
     return audio;
   };
 
+  // Fully releases a playback <audio> element's media resource instead of
+  // just pausing it, so it doesn't keep occupying a decoder slot. Mobile
+  // WebViews (Android in particular) cap how many audio elements can stay
+  // "loaded" at once - freeing this the moment we're done with it keeps that
+  // budget from silently running out after a lot of messages.
+  const releaseAudio = (audio) => {
+    if (!audio) return;
+    audio.pause();
+    while (audio.firstChild) audio.removeChild(audio.firstChild);
+    audio.removeAttribute('src');
+    audio.load();
+  };
+
   // "1:05" style formatting for a duration in seconds.
   const formatDuration = (seconds) => {
     if (!seconds || !isFinite(seconds)) return '0:00';
@@ -221,24 +234,46 @@ export default function App() {
     loadMessages();
   }, []);
 
-  // Probe the duration of any voice message we haven't measured yet (without
-  // playing it), so bubbles can show a real "0:14" instead of a placeholder.
+  // Probe the duration of voice messages in the open conversation (without
+  // playing them), so bubbles can show a real "0:14" instead of a placeholder.
+  //
+  // This is deliberately scoped to just the open thread, and each probe
+  // releases its media resource right after reading the duration. Android's
+  // WebView caps how many <audio> elements can stay "loaded" at once - the
+  // previous version probed every voice message across the whole app on
+  // every load and never released any of them, which eventually starved that
+  // budget. Once enough messages had piled up, the real play button inside a
+  // conversation would silently fail to produce sound on Android even though
+  // the exact same playback code worked fine on the messages list (iPhone's
+  // WebKit doesn't seem to hit the same limit, which is why this only showed
+  // up on Android).
   useEffect(() => {
-    messages.forEach(msg => {
-      if (!msg.audio_data || messageDurations[msg.id] !== undefined) return;
+    if (!selectedConversation) return;
 
-      const probe = createDualSourceAudio(msg.audio_data);
-      probe.preload = 'metadata';
-      probe.onloadedmetadata = () => {
-        setMessageDurations(prev => (prev[msg.id] !== undefined ? prev : { ...prev, [msg.id]: probe.duration }));
-      };
-      probe.onerror = () => {
-        setMessageDurations(prev => (prev[msg.id] !== undefined ? prev : { ...prev, [msg.id]: 0 }));
-      };
-      probe.load();
-    });
+    messages
+      .filter(m =>
+        m.listing_id === selectedConversation.id &&
+        m.audio_data &&
+        messageDurations[m.id] === undefined && (
+          (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(userPhone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(selectedConversation.phone)) ||
+          (formatPhoneWithPrefix(m.sender_phone) === formatPhoneWithPrefix(selectedConversation.phone) && formatPhoneWithPrefix(m.receiver_phone) === formatPhoneWithPrefix(userPhone))
+        )
+      )
+      .forEach(msg => {
+        const probe = createDualSourceAudio(msg.audio_data);
+        probe.preload = 'metadata';
+        probe.onloadedmetadata = () => {
+          setMessageDurations(prev => (prev[msg.id] !== undefined ? prev : { ...prev, [msg.id]: probe.duration }));
+          releaseAudio(probe);
+        };
+        probe.onerror = () => {
+          setMessageDurations(prev => (prev[msg.id] !== undefined ? prev : { ...prev, [msg.id]: 0 }));
+          releaseAudio(probe);
+        };
+        probe.load();
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, selectedConversation]);
 
   const startRecording = async () => {
     audioChunksRef.current = [];
@@ -499,16 +534,13 @@ export default function App() {
 
     // Tapping the one that's already playing pauses it.
     if (playingListingId === listingId && current) {
-      current.pause();
+      releaseAudio(current);
       setPlayingListingId(null);
       return;
     }
 
-    // Switching tracks (or starting fresh): stop whatever was playing.
-    if (current) {
-      current.pause();
-      current.currentTime = 0;
-    }
+    // Switching tracks (or starting fresh): fully release whatever was playing.
+    releaseAudio(current);
 
     const audio = createDualSourceAudio(audioBase64);
     inlineAudioRef.current = audio;
@@ -533,15 +565,12 @@ export default function App() {
     const current = conversationAudioRef.current;
 
     if (playingMessageId === messageId && current) {
-      current.pause();
+      releaseAudio(current);
       setPlayingMessageId(null);
       return;
     }
 
-    if (current) {
-      current.pause();
-      current.currentTime = 0;
-    }
+    releaseAudio(current);
 
     const audio = createDualSourceAudio(audioBase64);
     conversationAudioRef.current = audio;

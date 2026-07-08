@@ -720,91 +720,140 @@ export default function App() {
   }
 
   // MESSAGES PAGE
-  if (currentTab === 'messages') {
-    if (selectedConversation) {
-      return (
-        <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
-          <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-              <button onClick={() => setSelectedConversation(null)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-              <div style={{ fontSize: '14px', fontWeight: '600' }}>{selectedConversation.category}</div>
-              <div style={{ width: '28px' }}></div>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {messages.filter(m => 
-                m.listing_id === selectedConversation.id && (
-                  (m.sender_phone === userPhone && m.receiver_phone === selectedConversation.phone) ||
-                  (m.sender_phone === selectedConversation.phone && m.receiver_phone === userPhone)
-                )
-              ).map(msg => (
-                <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
-                  <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
-                  {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
-                  {msg.audio_data && (
-                    <audio controls style={{ width: '100%', height: '32px' }} preload="auto">
-                      <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
-                      <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
-                    </audio>
-                  )}
-                  <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '16px', flexShrink: 0 }}>
-              <input type="tel" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="Your phone" style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }} />
-              <button onClick={isRecordingMessage ? stopRecordingMessage : startRecordingMessage} style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginBottom: '8px' }}>{isRecordingMessage ? '⏹ Stop Recording' : '🎤 Record Voice'}</button>
-              {messageAudioBlob && <div style={{ fontSize: '10px', color: '#0f6e56', marginBottom: '8px' }}>✓ Voice recorded</div>}
-              <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Or type a message..." style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }} />
-              <button onClick={sendMessage} style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Send Message</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
+if (currentTab === 'messages') {
+  if (selectedConversation) {
     return (
       <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
         <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '16px', flexShrink: 0 }}>
-            <div style={{ fontSize: '18px', fontWeight: '600' }}>Messages</div>
+          <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <button onClick={() => setSelectedConversation(null)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
+            <div style={{ fontSize: '14px', fontWeight: '600' }}>{selectedConversation.category}</div>
+            <div style={{ width: '28px' }}></div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-            {listings.map(listing => {
-              const hasMessages = messages.some(m => m.listing_id === listing.id);
-              if (!hasMessages) return null;
-              const latestMessage = messages.find(m => m.listing_id === listing.id);
-              return (
-                <div key={listing.id} onClick={() => setSelectedConversation(listing)} style={{ background: '#242424', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #333', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ fontSize: '32px' }}>{categoryIcons[listing.category]}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '600', marginBottom: '4px' }}>{listing.category}</div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>💬 {latestMessage?.sender_phone}</div>
-                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{latestMessage?.message_text || '🎤 Voice message'}</div>
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>{listing.price} F</div>
-                  </div>
-                </div>
-              );
-            })}
-            {listings.filter(l => messages.some(m => m.listing_id === l.id)).length === 0 && (
-              <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
-                <div style={{ fontSize: '32px', marginBottom: '12px' }}>💬</div>
-                <div>No messages yet</div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {messages.filter(m => 
+              m.listing_id === selectedConversation.id && (
+                (m.sender_phone === userPhone && m.receiver_phone === selectedConversation.phone) ||
+                (m.sender_phone === selectedConversation.phone && m.receiver_phone === userPhone)
+              )
+            ).map(msg => (
+              <div key={msg.id} style={{ background: '#242424', borderRadius: '12px', padding: '12px', border: '1px solid #333' }}>
+                <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px' }}>📞 {msg.sender_phone}</div>
+                {msg.message_text && <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.message_text}</div>}
+                {msg.audio_data && (
+                  <audio controls style={{ width: '100%', height: '32px' }} preload="auto">
+                    <source src={`data:audio/webm;base64,${msg.audio_data}`} type="audio/webm" />
+                    <source src={`data:audio/mp4;base64,${msg.audio_data}`} type="audio/mp4" />
+                  </audio>
+                )}
+                <div style={{ fontSize: '10px', color: '#666', marginTop: '8px' }}>{new Date(msg.created_at).toLocaleTimeString()}</div>
               </div>
-            )}
+            ))}
           </div>
 
-          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
-            <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+          <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '16px', flexShrink: 0 }}>
+            <input type="tel" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="Your phone" style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }} />
+            <button onClick={isRecordingMessage ? stopRecordingMessage : startRecordingMessage} style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginBottom: '8px' }}>{isRecordingMessage ? '⏹ Stop Recording' : '🎤 Record Voice'}</button>
+            {messageAudioBlob && <div style={{ fontSize: '10px', color: '#0f6e56', marginBottom: '8px' }}>✓ Voice recorded</div>}
+            <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Or type a message..." style={{ width: '100%', padding: '10px', background: '#1a1a1a', border: '1px solid #444', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', color: 'white', marginBottom: '8px' }} />
+            <button onClick={sendMessage} style={{ width: '100%', padding: '12px', background: '#0f6e56', border: 'none', borderRadius: '8px', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Send Message</button>
           </div>
         </div>
       </div>
     );
   }
+
+  // Messages List - Concept D
+  return (
+    <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', display: 'flex', padding: '0', margin: '0' }}>
+      <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '16px', flexShrink: 0 }}>
+          <div style={{ fontSize: '18px', fontWeight: '600' }}>Messages</div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
+          {listings.map(listing => {
+            const hasMessages = messages.some(m => m.listing_id === listing.id);
+            if (!hasMessages) return null;
+            
+            const listingMessages = messages.filter(m => m.listing_id === listing.id).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const latestMessage = listingMessages[0];
+            const isAudio = latestMessage?.audio_data;
+
+            return (
+              <div 
+                key={listing.id}
+                style={{ 
+                  padding: '12px 16px', 
+                  borderBottom: '0.5px solid #333', 
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center'
+                }}
+              >
+                <div 
+                  style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flex: 1, minWidth: 0 }}
+                  onClick={() => setSelectedConversation(listing)}
+                >
+                  <div style={{ fontSize: '28px', flexShrink: 0 }}>{categoryIcons[listing.category] || '📦'}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: '600', fontSize: '13px', color: 'white' }}>{listing.category}</div>
+                    <div style={{ fontSize: '10px', color: '#999', marginBottom: '4px' }}>{listing.price} F • {listing.location}</div>
+                    <div style={{ fontSize: '10px', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {isAudio 
+                        ? '🎤 Voice message' 
+                        : latestMessage?.message_text 
+                          ? (latestMessage.sender_phone === userPhone ? 'You: ' : 'Seller: ') + latestMessage.message_text
+                          : ''}
+                    </div>
+                  </div>
+                </div>
+
+                {isAudio && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    style={{ 
+                      background: '#0f6e56', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '50%', 
+                      width: '28px', 
+                      height: '28px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      cursor: 'pointer', 
+                      fontSize: '12px', 
+                      flexShrink: 0,
+                      marginLeft: '8px'
+                    }}
+                  >
+                    ▶
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          {listings.filter(l => messages.some(m => m.listing_id === l.id)).length === 0 && (
+            <div style={{ textAlign: 'center', paddingTop: '80px', color: '#666' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>💬</div>
+              <div>No messages yet</div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: '#242424', borderTop: '1px solid #333', padding: '8px 16px', flexShrink: 0 }}>
+          <button onClick={() => setCurrentTab('browse')} style={{ width: '100%', padding: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>Back to Browse</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
   // DETAIL PAGE
   if (selectedListing) {

@@ -963,7 +963,7 @@ if (currentTab === 'messages') {
         <div style={{ background: '#1a1a1a', width: '100%', height: '100vh', color: 'white', display: 'flex', flexDirection: 'column' }}>
           <div style={{ background: '#242424', borderBottom: '1px solid #333', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             <button onClick={() => setSelectedConversation(null)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #444', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'white' }}>←</button>
-            <div style={{ fontSize: '14px', fontWeight: '600' }}>{selectedConversation.category}</div>
+            <div style={{ fontSize: '22px' }} title={selectedConversation.category}>{categoryIcons[selectedConversation.category] || '📦'}</div>
             <div style={{ width: '28px' }}></div>
           </div>
 
